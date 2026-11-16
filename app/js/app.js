@@ -317,9 +317,12 @@
         (s.lastError ? '<div class="mcp-error">' + esc(s.lastError) + '</div>' : '') +
         '<div class="mcp-actions"><button class="btn" data-act="config" type="button">配置</button>' +
         '<button class="btn" data-act="test" type="button"' + (s.url ? '' : ' disabled') + '>测试连接</button>' +
+        (s.preset === 'lingxing' ? '<button class="link-btn" data-act="help" type="button">帮助</button>' : '') +
         '<span class="spacer"></span><label class="mcp-toggle"><input type="checkbox" data-act="enabled"' + (s.enabled ? ' checked' : '') + '> 启用</label></div>';
 
       card.querySelector('[data-act="config"]').addEventListener('click', () => openMcpModal(s));
+      const helpBtn = card.querySelector('[data-act="help"]');
+      if (helpBtn) helpBtn.addEventListener('click', () => openLingxingHelp(false));
       card.querySelector('[data-act="test"]').addEventListener('click', async (e) => {
         const btn = e.currentTarget;
         btn.disabled = true;
@@ -370,7 +373,9 @@
     const html =
       '<div class="modal-head"><div><h2>' + (isNew ? '添加数据源' : '配置 ' + esc(s.name)) + '</h2>' +
       '<p>填写服务商提供的 MCP 地址和 Key。保存后点「保存并测试」读取工具列表。</p></div>' +
-      '<button class="modal-close" data-close type="button">×</button></div>' +
+      '<div class="modal-head-actions">' +
+      (s.preset === 'lingxing' ? '<button class="link-btn" id="mcpHelp" type="button">帮助</button>' : '') +
+      '<button class="modal-close" data-close type="button">×</button></div></div>' +
       '<div class="field"><label>名称</label><input type="text" id="mcpName" value="' + esc(s.name) + '" placeholder="例如：领星 ERP"></div>' +
       '<div class="field"><label>MCP 地址</label><input type="text" id="mcpUrl" value="' + esc(s.url || '') + '" placeholder="https://.../mcp" spellcheck="false"></div>' +
       '<div class="form-grid">' +
@@ -394,6 +399,8 @@
 
     const close = showModal(html, { wide: true });
     const modal = close.modal;
+    const helpBtn = modal.querySelector('#mcpHelp');
+    if (helpBtn) helpBtn.addEventListener('click', () => openLingxingHelp(true));
     const keyField = modal.querySelector('#mcpKeyParamField');
     const tokenLabel = modal.querySelector('#mcpTokenLabel');
     const syncAuth = () => {
@@ -487,6 +494,55 @@
         } catch (err) {
           setState(err.message, 'err');
         }
+      });
+    }
+  }
+
+  function openLingxingHelp(fromConfig) {
+    const url = 'https://openmcp.lingxing.com/mcp-servers/lingxing-mcp';
+    const html =
+      '<div class="modal-head"><div><h2>领星 MCP 怎么填</h2>' +
+      '<p>领星用自定义 Header 认证，不是 Bearer Token，也不是 URL 参数 key。</p></div>' +
+      '<button class="modal-close" data-close type="button">×</button></div>' +
+      '<div class="mcp-help">' +
+      '<div class="mcp-help-row"><div class="mcp-help-k">MCP 地址</div><div class="mcp-help-v">' +
+      '<code id="lingxingHelpUrl">' + esc(url) + '</code>' +
+      '<button class="link-btn" data-copy-target="lingxingHelpUrl" type="button">复制</button>' +
+      '<small>原样填写，不要自己在末尾加 /mcp。</small></div></div>' +
+      '<div class="mcp-help-row"><div class="mcp-help-k">认证方式</div><div class="mcp-help-v">' +
+      '<code>自定义 Headers</code>' +
+      '<small>不要选 Bearer Token，也不要选 URL 参数 key。</small></div></div>' +
+      '<div class="mcp-help-row"><div class="mcp-help-k">访问令牌 / Key</div><div class="mcp-help-v">' +
+      '<code>留空</code>' +
+      '<small>填在这里会额外发送 Authorization: Bearer，领星会认不出来。</small></div></div>' +
+      '<div class="mcp-help-row"><div class="mcp-help-k">附加 Headers</div><div class="mcp-help-v">' +
+      '<code id="lingxingHelpHeaders">{"X-Mcp-Key":"你的访问密钥"}</code>' +
+      '<button class="link-btn" data-copy-target="lingxingHelpHeaders" type="button">复制</button>' +
+      '<small>把「你的访问密钥」换成领星页面复制的那串，不要带 Bearer 前缀。</small></div></div>' +
+      '<div class="mcp-help-row"><div class="mcp-help-k">启用</div><div class="mcp-help-v">' +
+      '<code>勾选「启用这个数据源」</code>' +
+      '<small>保存后点「保存并测试」，测试成功会显示读到的工具数量和工具名。</small></div></div>' +
+      '</div>' +
+      '<div class="mcp-help-note"><b>在领星哪里找：</b>领星 MCP 页面里的「服务器地址」「请求头名称」「访问密钥」。请求头名称就是 <code>X-Mcp-Key</code>。如果返回 401/403，先检查 Key 是否复制完整、地址是否多了或少了后缀。</div>' +
+      '<div class="modal-actions">' +
+      (fromConfig ? '' : '<button class="btn" id="lingxingGo" type="button">去配置</button>') +
+      '<button class="btn primary" data-close type="button">知道了</button></div>';
+
+    const close = showModal(html, { wide: true });
+    const modal = close.modal;
+    modal.querySelectorAll('[data-copy-target]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const el = modal.querySelector('#' + btn.dataset.copyTarget);
+        if (!el) return;
+        copyText(el.textContent);
+      });
+    });
+    const go = modal.querySelector('#lingxingGo');
+    if (go) {
+      go.addEventListener('click', () => {
+        close();
+        const server = (state.mcp.servers || []).find((x) => x.preset === 'lingxing');
+        if (server) openMcpModal(server);
       });
     }
   }

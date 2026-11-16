@@ -533,6 +533,54 @@ a { color: inherit; }
 .mcp-test-state.ok { color: var(--accent); }
 .mcp-test-state.err { color: var(--danger); }
 
+.link-btn {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font-size: 12px;
+  padding: 2px 0;
+  cursor: pointer;
+  font-family: var(--font);
+}
+.link-btn:hover { text-decoration: underline; }
+.mcp-actions .link-btn { font-size: 11.5px; padding: 0 2px; }
+.modal-head-actions { display: flex; align-items: center; gap: 10px; flex: none; }
+.mcp-help { border-top: 1px solid var(--line); }
+.mcp-help-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.mcp-help-k { color: var(--muted); font-size: 12px; line-height: 1.6; padding-top: 3px; }
+.mcp-help-v { min-width: 0; }
+.mcp-help-v code,
+.mcp-help-note code {
+  display: inline;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--raised);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.mcp-help-v .link-btn { margin-left: 8px; }
+.mcp-help-v small { display: block; margin-top: 6px; color: var(--muted); font-size: 11.5px; line-height: 1.6; }
+.mcp-help-note {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--raised);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.mcp-help-note b { color: var(--ink-2); font-weight: 500; }
+.mcp-help-note code { font-size: 11px; padding: 1px 4px; background: var(--surface); white-space: nowrap; }
+
 /* ============ 消息 ============ */
 .msg { display: flex; gap: 12px; margin: 28px 0; }
 .msg.user { flex-direction: row-reverse; }

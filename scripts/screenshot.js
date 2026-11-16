@@ -193,6 +193,22 @@ async function main() {
     await sleep(600);
     await shot('09-mcp.png');
 
+    await evaluate('document.querySelectorAll(".mcp-card")[0].querySelector("[data-act=help]").click()');
+    await sleep(500);
+    await shot('11-lingxing-help.png');
+    await evaluate('Array.from(document.querySelectorAll(".overlay")).pop().querySelector("[data-close]").click()');
+    await sleep(300);
+
+    await evaluate('document.querySelectorAll(".mcp-card")[0].querySelector("[data-act=config]").click()');
+    await sleep(400);
+    await evaluate('document.querySelector("#mcpHelp").click()');
+    await sleep(400);
+    await shot('11b-lingxing-help-from-config.png');
+    await evaluate('Array.from(document.querySelectorAll(".overlay")).pop().querySelector("[data-close]").click()');
+    await sleep(300);
+    await evaluate('Array.from(document.querySelectorAll(".overlay")).pop().querySelector("[data-close]").click()');
+    await sleep(300);
+
     await evaluate('document.querySelectorAll(".mcp-card")[3].querySelector("[data-act=config]").click()');
     await sleep(500);
     await evaluate(
