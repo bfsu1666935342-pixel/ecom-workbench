@@ -1,0 +1,19 @@
+{
+  "id": "traffic-diagnosis",
+  "title": "流量承接诊断",
+  "icon": "🚦",
+  "group": "广告与流量",
+  "order": 100,
+  "featured": false,
+  "tagline": "曝光覆盖率 k / CTR / CVR / 逐词对症",
+  "description": "把搜索词报告和搜索量词库合并，算每个词的曝光覆盖率 k、CTR、CVR、CPA，判断是没被看到、看到了不点、还是点了不买，逐词给具体动作和优先级。",
+  "starters": [
+    "帮我看这些词是没曝光还是不转化",
+    "搜索词报告和 ABA 词表都上传了，做一份流量诊断",
+    "为什么曝光很高但订单很少"
+  ],
+  "fields": [
+    { "key": "reports", "label": "报表与词库", "type": "textarea", "placeholder": "上传搜索词报告和搜索量词库，说明时间范围和站点" },
+    { "key": "target", "label": "目标 CPA / ACOS", "placeholder": "例如：目标 CPA $8，ACOS 25%" }
+  ]
+}

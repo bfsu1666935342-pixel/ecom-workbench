@@ -1,0 +1,20 @@
+{
+  "id": "inventory-plan",
+  "title": "库存与补货",
+  "icon": "📦",
+  "group": "利润与供应链",
+  "order": 120,
+  "featured": false,
+  "tagline": "补货点 / 补货量 / 旺季备货 / 空海运拆分",
+  "description": "按日均销量、交期、MOQ 和安全库存算补货点与补货量，做保守/基准/乐观三档情景、旺季备货和空海运拆分，输出最晚下单日和现金流占用。",
+  "starters": [
+    "帮我算一下什么时候该补货、补多少",
+    "黑五要备多少货，现在下单来得及吗",
+    "库存还能卖 18 天，海运会断货吗"
+  ],
+  "fields": [
+    { "key": "sales", "label": "日均销量 / 库存", "placeholder": "例如：日均 25 单，当前库存 600，在途 300", "required": true },
+    { "key": "lead", "label": "交期与物流", "placeholder": "例如：生产 20 天，海运 35 天，MOQ 500" },
+    { "key": "season", "label": "旺季计划", "placeholder": "例如：黑五预计 2.5 倍，圣诞 2 倍" }
+  ]
+}

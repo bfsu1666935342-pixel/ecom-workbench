@@ -1,0 +1,19 @@
+{
+  "id": "ad-diagnose",
+  "title": "广告数据诊断",
+  "icon": "📊",
+  "group": "广告与流量",
+  "order": 90,
+  "featured": false,
+  "tagline": "搜索词报告 → 浪费花费 / 收割词 / 否词 / 出价",
+  "description": "上传搜索词报告或广告活动报表，用真实数据算 CTR、CPC、CVR、ACOS，按可节省金额排序，输出否词清单、出价调整、预算重分配和 7 天行动计划。",
+  "starters": [
+    "这是我的搜索词报告，帮我找浪费的钱",
+    "自动广告跑了两周，哪些词该拿出来打精准",
+    "ACOS 降不下来，帮我看看先动哪几个词"
+  ],
+  "fields": [
+    { "key": "report", "label": "报表文件", "type": "textarea", "placeholder": "上传 CSV/Excel 后在这里说明时间范围、站点和目标 ACOS" },
+    { "key": "target", "label": "目标 ACOS / CPA", "placeholder": "例如：目标 ACOS 25%，或目标 CPA $8" }
+  ]
+}

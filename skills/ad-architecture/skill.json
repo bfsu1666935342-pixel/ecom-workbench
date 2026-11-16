@@ -1,0 +1,20 @@
+{
+  "id": "ad-architecture",
+  "title": "广告架构与预算",
+  "icon": "🎯",
+  "group": "广告与流量",
+  "order": 80,
+  "featured": true,
+  "tagline": "盈亏平衡 ACOS / Campaign 结构 / 预算分配 / 30 天节奏",
+  "description": "按毛利倒推盈亏平衡 ACOS 和 CPC，设计自动、精准、词组、ASIN 定投四层结构，给出预算占比、出价、否词和止损线，以及 30 天优化节奏。适合新品起盘和老品重构。",
+  "starters": [
+    "新品准备开广告，帮我搭结构和预算",
+    "我的 ACOS 一直在 45%，帮我看看结构哪里有问题",
+    "售价 $29.99，成本 $8，帮我算盈亏平衡 ACOS"
+  ],
+  "fields": [
+    { "key": "product", "label": "产品 / 售价", "placeholder": "例如：露营灯，售价 $29.99，美国站", "required": true },
+    { "key": "cost", "label": "成本结构", "type": "textarea", "placeholder": "例如：采购 $6，头程 $1.2，FBA $4.5，佣金 15%，退货率 5%" },
+    { "key": "budget", "label": "预算与目标", "placeholder": "例如：日预算 $50，目标净利 15%，新品" }
+  ]
+}

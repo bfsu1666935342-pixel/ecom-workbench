@@ -1,0 +1,21 @@
+{
+  "id": "listing-writer",
+  "title": "Listing 撰写",
+  "icon": "✍️",
+  "group": "上架与内容",
+  "order": 40,
+  "featured": true,
+  "tagline": "标题 / 五点 / 描述 / 后台关键词 / A+ 提纲",
+  "description": "把产品参数翻译成美国消费者看得懂、平台允许、关键词能索引的销售文案。支持新品从零写、老链接重写、标题 A/B 版本、五点与 A+ 提纲，并逐条标出合规风险。",
+  "starters": [
+    "帮我写一条新品 Listing，产品是便携露营灯",
+    "把这条老 Listing 重写得更像美国人写的",
+    "给我 3 个标题版本，分别偏搜索、偏利益、偏场景"
+  ],
+  "fields": [
+    { "key": "product", "label": "产品与规格", "type": "textarea", "placeholder": "例如：USB-C 充电露营灯，三档调光，ABS 外壳，带挂钩，重量 280g", "required": true },
+    { "key": "audience", "label": "目标人群 / 场景", "placeholder": "例如：周末露营、停电应急、车库备用" },
+    { "key": "diff", "label": "与竞品的真实差异", "type": "textarea", "placeholder": "例如：比同类轻 30%，有电量显示，磁吸底座" },
+    { "key": "keywords", "label": "已有核心关键词", "placeholder": "例如：camping lantern, rechargeable lantern" }
+  ]
+}

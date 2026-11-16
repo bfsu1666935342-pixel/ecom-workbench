@@ -1,0 +1,20 @@
+{
+  "id": "market-scan",
+  "title": "市场机会扫描",
+  "icon": "🔭",
+  "group": "选品与市场",
+  "order": 10,
+  "featured": true,
+  "tagline": "五道门快速判断：需求 / 竞争 / 利润 / 供应链 / 差异化",
+  "description": "给一个产品想法做 30 分钟粗筛：需求、竞争、单位经济、供应链、差异化五道门，逐项给 pass/warn/fail 和证据，最后给 Go / 谨慎 / No-Go 与下一步验证清单。",
+  "starters": [
+    "这个类目能不能做：便携露营灯，美国站",
+    "帮我对比这三个选品方向，哪个更值得做",
+    "我没有类目数据，先帮我粗筛一下这个想法"
+  ],
+  "fields": [
+    { "key": "product", "label": "产品 / 类目", "placeholder": "例如：便携露营灯，美国站，目标售价 $29.99", "required": true },
+    { "key": "advantage", "label": "你的优势", "placeholder": "例如：有工厂、能做小批量、有海外仓" },
+    { "key": "worry", "label": "最担心什么", "placeholder": "例如：压货、专利、价格战" }
+  ]
+}

@@ -1,0 +1,44 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node for tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Prepare bundled runtime
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\prepare-runtime.ps1
+
+      - name: Unit tests
+        shell: pwsh
+        run: |
+          node tests/markdown.test.js
+          node tests/tools.test.js
+          node tests/mcp.test.js
+
+      - name: Build portable zip
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\打包.ps1
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/EcomWorkbench-*.zip
+            dist/SHA256.txt
+          generate_release_notes: true

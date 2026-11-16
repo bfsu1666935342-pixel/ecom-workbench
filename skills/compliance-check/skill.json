@@ -1,0 +1,20 @@
+{
+  "id": "compliance-check",
+  "title": "合规与风控",
+  "icon": "🛡️",
+  "group": "合规与客服",
+  "order": 140,
+  "featured": false,
+  "tagline": "绝对化 / 医疗功效 / 认证 / 知识产权 / 图片标签",
+  "description": "扫描 Listing 文案和图片里的合规风险：绝对化宣称、医疗功效、安全认证、竞品元素、受限词和标签，按高/中/低分级，给改写建议和需要的证明文件。",
+  "starters": [
+    "帮我把这条 Listing 做一次合规检查",
+    "这个五点里有没有会被下架的词",
+    "我想写 waterproof，需要什么证明"
+  ],
+  "fields": [
+    { "key": "text", "label": "Listing 文案", "type": "textarea", "placeholder": "粘贴标题、五点、描述、A+ 文案；图片文案也可以贴", "required": true },
+    { "key": "category", "label": "类目 / 站点", "placeholder": "例如：户外照明，美国站" },
+    { "key": "certs", "label": "已有认证", "placeholder": "例如：FCC、CE、RoHS，或还没有" }
+  ]
+}

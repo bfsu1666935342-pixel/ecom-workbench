@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>跨境 AI 工作台</title>
+  <link rel="icon" href="/assets/logo.svg">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="backdrop" id="backdrop"></div>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" fill="none">
+            <rect x="1" y="1" width="30" height="30" rx="8" fill="currentColor"/>
+            <path d="M9.5 20.5 15.2 12l3.2 4.2 2.1-2.6 3.9 6.9H9.5Z" fill="#f7f3ea" class="logo-fg"/>
+            <circle cx="21.8" cy="10.6" r="1.7" fill="#f7f3ea" class="logo-fg"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-name" id="brandName">跨境 AI 工作台</div>
+          <div class="brand-sub" id="brandSub">Ecom Workbench</div>
+        </div>
+      </div>
+
+      <button class="new-chat" id="newChat" type="button">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        新对话
+        <span class="kbd">Ctrl K</span>
+      </button>
+
+      <nav class="side-nav" id="sideNav">
+        <button class="nav-item" type="button" data-view="skills">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6" stroke="currentColor" stroke-width="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6" stroke="currentColor" stroke-width="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6" stroke="currentColor" stroke-width="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6" stroke="currentColor" stroke-width="1.5"/></svg>
+          <span>技能库</span>
+          <span class="nav-count" id="navSkillCount">14</span>
+        </button>
+        <button class="nav-item" type="button" data-view="mcp">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9.2 14.8 14.8 9.2M8.2 6.8l1.2-1.2a3.3 3.3 0 0 1 4.7 4.7L12.9 11.5M15.8 17.2l-1.2 1.2a3.3 3.3 0 0 1-4.7-4.7l1.2-1.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>数据源</span>
+          <span class="nav-count" id="navMcpCount">0</span>
+        </button>
+      </nav>
+
+      <div class="side-scroll">
+        <div class="side-section sessions-section">
+          <div class="side-title"><span>最近对话</span><button class="mini-link" id="clearHistory" type="button">清空</button></div>
+          <div id="sessionList" class="session-list"></div>
+        </div>
+      </div>
+
+      <div class="side-foot">
+        <button type="button" data-action="settings">设置</button>
+        <button type="button" data-action="help">说明</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="菜单">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+        <div class="top-title">
+          <span id="chatTitle">新对话</span>
+          <button class="skill-chip hidden" id="skillChip" type="button"></button>
+        </div>
+        <div class="top-actions">
+          <button class="icon-btn" id="themeBtn" type="button" title="切换主题" aria-label="切换主题">
+            <svg class="i-moon" viewBox="0 0 24 24" fill="none"><path d="M20.2 14.6A8.4 8.4 0 0 1 9.4 3.8 8.4 8.4 0 1 0 20.2 14.6Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            <svg class="i-sun" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+          <button class="icon-btn" id="settingsBtn" type="button" title="设置" aria-label="设置">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" stroke="currentColor" stroke-width="1.5"/><path d="M19.3 14.5c.06-.4.1-.8.1-1.2s-.04-.8-.1-1.2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-2-1.2L14.5 4h-4l-.4 2.5c-.7.3-1.4.7-2 1.2l-2.4-1-2 3.4 2 1.6c-.06.4-.1.8-.1 1.2s.04.8.1 1.2l-2 1.6 2 3.4 2.4-1c.6.5 1.3.9 2 1.2l.4 2.5h4l.4-2.5c.7-.3 1.4-.7 2-1.2l2.4 1 2-3.4-2-1.6Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="view chat-view" id="chatView">
+        <div class="chat" id="chat">
+          <section class="welcome" id="welcome">
+            <div class="welcome-inner">
+              <div class="page-head">
+                <h1>开始处理</h1>
+                <p>直接描述你要处理的事，或从技能库选择一个流程。</p>
+                <button class="btn welcome-action" id="welcomeSkills" type="button">浏览技能库</button>
+              </div>
+              <div class="welcome-meta">
+                <span>文件保存在 workspace/</span>
+                <span>对话只存本机</span>
+                <span>无需安装环境</span>
+              </div>
+            </div>
+          </section>
+          <div class="messages" id="messages"></div>
+        </div>
+
+        <div class="composer-area">
+          <div class="composer-inner">
+            <div class="skill-banner hidden" id="skillBanner">
+              <span class="sb-no" id="sbNo">01</span>
+              <span class="sb-text"><b id="sbTitle"></b><small id="sbDesc"></small></span>
+              <button class="sb-close" id="clearSkill" type="button" title="取消技能">×</button>
+            </div>
+            <div class="attachments hidden" id="attachments"></div>
+            <div class="composer" id="composer">
+              <textarea id="input" rows="1" placeholder="说说你现在要处理的事……" autocomplete="off"></textarea>
+              <div class="composer-bar">
+                <div class="tools">
+                  <button class="icon-btn attach" id="attachBtn" type="button" title="上传附件（Excel / PDF / Word / 图片）" aria-label="上传附件">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M20 11.5 12.7 18.8a4.2 4.2 0 0 1-6-6l7.6-7.6a2.8 2.8 0 0 1 4 4l-7.6 7.6a1.4 1.4 0 0 1-2-2l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  <button class="pill" id="searchBtn" type="button" title="需要最新政策、费用、趋势时让 AI 上网查（按次计费）">联网</button>
+                  <button class="pill" id="thinkBtn" type="button" title="先推理再回答，复杂任务更稳，速度稍慢">深度思考</button>
+                </div>
+                <div class="send-wrap">
+                  <span class="model-tag" id="modelTag">Flash</span>
+                  <button class="send-btn" id="sendBtn" type="button" title="发送（Enter）" aria-label="发送">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M12 19V5M12 5l-6 6M12 5l6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="composer-note">Enter 发送 · Shift + Enter 换行 · 文件保存在 workspace/</div>
+          </div>
+        </div>
+      </div>
+
+      <section class="view page-view hidden" id="skillsView">
+        <div class="page-inner">
+          <div class="page-head">
+            <h1>技能库</h1>
+            <p><span id="skillsPageCount">14</span> 个亚马逊运营技能，按流程分组。点一个技能，填几项信息，或直接用常用问法。</p>
+          </div>
+          <div class="skills-toolbar">
+            <label class="search-field">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <input id="skillSearch" type="search" placeholder="搜索技能" autocomplete="off">
+            </label>
+            <div class="filter-bar" id="skillFilters"></div>
+          </div>
+          <div class="skill-index" id="skillIndex"></div>
+        </div>
+      </section>
+
+      <section class="view page-view hidden" id="mcpView">
+        <div class="page-inner">
+          <div class="page-head mcp-head">
+            <div>
+              <h1>数据源</h1>
+              <p>连接领星、卖家精灵、SIF、Sorftime 等 MCP 服务。连接后，技能可以直接查类目、关键词、销量和广告数据。</p>
+            </div>
+            <button class="btn" id="addMcp" type="button">添加自定义 MCP</button>
+          </div>
+          <div class="mcp-grid" id="mcpList"></div>
+          <p class="mcp-note">地址、Key 和 Headers 只保存在本机 data/mcp.json，不会发给模型。配置后点「测试连接」读取工具列表。</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <div id="modalRoot"></div>
+  <input type="file" id="fileInput" multiple hidden>
+
+  <script src="/js/markdown.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

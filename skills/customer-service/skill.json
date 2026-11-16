@@ -1,0 +1,19 @@
+{
+  "id": "customer-service",
+  "title": "客服与售后",
+  "icon": "🎧",
+  "group": "合规与客服",
+  "order": 150,
+  "featured": false,
+  "tagline": "延迟 / 破损 / 退货 / 差评 / A-to-Z 英文话术",
+  "description": "按场景生成英文客服回复和中文说明：物流延迟、破损缺件、不会用、退货退款、差评公开回复、A-to-Z。附内部备注、升级条件和不能说的话。",
+  "starters": [
+    "买家说 10 天了还没收到，帮我回一封英文邮件",
+    "产品到货破损了，怎么回复既安抚又不担责",
+    "收到一个 1 星差评，公开回复怎么写"
+  ],
+  "fields": [
+    { "key": "scene", "label": "场景与买家原话", "type": "textarea", "placeholder": "例如：买家说灯不亮，要求退款，订单 3 天前签收", "required": true },
+    { "key": "policy", "label": "你能给的方案", "placeholder": "例如：可以补发、可退 50%、不接受仅退款" }
+  ]
+}

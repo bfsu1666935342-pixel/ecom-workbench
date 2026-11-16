@@ -1,0 +1,20 @@
+{
+  "id": "keyword-strategy",
+  "title": "关键词布局",
+  "icon": "🔑",
+  "group": "上架与内容",
+  "order": 50,
+  "featured": false,
+  "tagline": "建词库 / 分意图 / 定优先级 / 分配位置",
+  "description": "把种子词、ABA、卖家精灵或搜索词报告整理成可执行的词库：按购买意图分类，排出 S/A/B/C 优先级，分配标题、五点、后台和广告匹配方式，并给出 4 周推进节奏。",
+  "starters": [
+    "帮我给这款露营灯做一份关键词布局",
+    "这是我导出的 ABA 词表，帮我筛出该投的词",
+    "标题和后台关键词怎么分配，才不浪费"
+  ],
+  "fields": [
+    { "key": "product", "label": "产品 / 类目", "placeholder": "例如：便携露营灯，美国站", "required": true },
+    { "key": "seeds", "label": "种子词或竞品 ASIN", "type": "textarea", "placeholder": "例如：camping lantern, rechargeable lantern；或 B0XXXXXXX" },
+    { "key": "data", "label": "已有数据", "placeholder": "例如：ABA 前 10 万 / 卖家精灵导出 / 还没有数据" }
+  ]
+}

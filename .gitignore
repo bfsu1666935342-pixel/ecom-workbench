@@ -1,0 +1,10 @@
+data/
+workspace/
+dist/
+_dist/
+node_modules/
+runtime/node.exe
+docs/*.png
+*.zip
+*.log
+.env

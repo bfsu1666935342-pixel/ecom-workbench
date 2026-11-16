@@ -1,0 +1,20 @@
+{
+  "id": "profit-pricing",
+  "title": "利润与定价",
+  "icon": "💰",
+  "group": "利润与供应链",
+  "order": 110,
+  "featured": false,
+  "tagline": "单件 P&L / 盈亏平衡 ACOS / 价格阶梯 / 敏感性表",
+  "description": "把采购、头程、FBA、佣金、退货、仓储、广告全部算进去，输出单件利润表、盈亏平衡 ACOS、3–5 个价格点的净利对比和价格×广告占比敏感性表，并给出促销底线。",
+  "starters": [
+    "帮我算这款产品的单件利润和盈亏平衡 ACOS",
+    "定价 $29.99 还是 $32.99，哪个更划算",
+    "准备打 8 折，帮我看看会不会亏"
+  ],
+  "fields": [
+    { "key": "price", "label": "售价", "placeholder": "例如：$29.99，美国站", "required": true },
+    { "key": "costs", "label": "成本明细", "type": "textarea", "placeholder": "例如：采购 $6，头程 $1.2，FBA $4.5，佣金 15%，退货率 5%，广告占比 15%" },
+    { "key": "target", "label": "目标净利率", "placeholder": "例如：15%" }
+  ]
+}

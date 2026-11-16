@@ -1,0 +1,20 @@
+{
+  "id": "category-deepdive",
+  "title": "类目深度评估",
+  "icon": "🧭",
+  "group": "选品与市场",
+  "order": 20,
+  "featured": false,
+  "tagline": "数据驱动：市场 / 竞争 / 价格带 / 评论 / 关键词 / 单位经济",
+  "description": "上传卖家精灵、Sorftime、ABA 或 Top100 数据，做一份可交付的类目评估：市场趋势、集中度、价格带、评论壁垒、关键词缺口和单位经济，输出单文件 HTML 报告，并明确列出数据缺口。",
+  "starters": [
+    "我上传了类目 Top100，帮我做一份评估报告",
+    "这个类目 CR10 很高，还值得进吗",
+    "帮我把这份数据做成能给老板看的 HTML 报告"
+  ],
+  "fields": [
+    { "key": "category", "label": "类目 / Node / 关键词", "placeholder": "例如：Camping Lanterns，美国站", "required": true },
+    { "key": "data", "label": "已有哪些数据", "type": "textarea", "placeholder": "例如：Top100 销量表、ABA 词表、Top5 评论、成本表" },
+    { "key": "goal", "label": "这次要回答什么", "placeholder": "例如：值不值得进、切哪个价格带、怎么定价" }
+  ]
+}
