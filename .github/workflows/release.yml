@@ -32,8 +32,8 @@ jobs:
           node tests/mcp.test.js
 
       - name: Build portable zip
-        shell: powershell
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\打包.ps1
+        shell: pwsh
+        run: ./build.ps1
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

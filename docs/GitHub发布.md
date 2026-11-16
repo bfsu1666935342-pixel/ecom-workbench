@@ -24,7 +24,7 @@
 
 ```powershell
 cd D:\deepseek相关\马修\ecom-workbench
-git remote add origin https://github.com/<你的用户名>/ecom-workbench.git
+git remote add origin https://github.com/bfsu1666935342-pixel/ecom-workbench.git
 git branch -M main
 git push -u origin main
 ```
@@ -59,7 +59,7 @@ GitHub Actions（`.github/workflows/release.yml`）会自动：
 发布成功后，别人下载：
 
 ```text
-https://github.com/<你的用户名>/ecom-workbench/releases/latest
+https://github.com/bfsu1666935342-pixel/ecom-workbench/releases/latest
 ```
 
 解压 → 双击 `Start.bat` → 填自己的 Key。
@@ -69,7 +69,7 @@ https://github.com/<你的用户名>/ecom-workbench/releases/latest
 ## 3. 在另一台电脑上继续改
 
 ```powershell
-git clone https://github.com/<你的用户名>/ecom-workbench.git
+git clone https://github.com/bfsu1666935342-pixel/ecom-workbench.git
 cd ecom-workbench
 
 # 有 Node 22+：直接开发
