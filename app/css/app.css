@@ -1071,6 +1071,16 @@ a { color: inherit; }
   border-color: color-mix(in srgb, var(--accent) 50%, var(--line-strong));
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+/* 去掉 Edge/IE 自带的密码眼睛和清除按钮，避免和右侧自定义眼睛叠在一起 */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear { display: none; }
+input[type="password"]::-webkit-credentials-auto-fill-button {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
 .field textarea { resize: vertical; min-height: 64px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
 
@@ -1108,8 +1118,8 @@ a { color: inherit; }
 .setting-row .s-control { flex: none; min-width: 180px; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
 .setting-row .s-control input[type="text"], .setting-row .s-control input[type="password"], .setting-row .s-control select { width: 220px; }
 .key-wrap { position: relative; display: flex; gap: 4px; }
-.key-wrap input { padding-right: 32px; font-family: var(--mono); font-size: 11.5px; }
-.key-eye { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--faint); padding: 4px 6px; border-radius: var(--r-xs); }
+.key-wrap input { padding-right: 44px; font-family: var(--mono); font-size: 11.5px; }
+.key-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--faint); width: 28px; height: 28px; padding: 0; border-radius: var(--r-xs); display: inline-flex; align-items: center; justify-content: center; }
 .key-eye:hover { color: var(--ink); background: var(--raised); }
 .key-actions { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
 .key-actions .btn { height: 32px; padding: 0 10px; font-size: 11.5px; }
@@ -1155,7 +1165,7 @@ a { color: inherit; }
 }
 .key-box { background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-card); padding: 16px; box-shadow: var(--shadow-sm); }
 .key-box label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 6px; }
-.key-box .key-wrap input { width: 100%; padding: 10px 34px 10px 10px; font-size: 12.5px; }
+.key-box .key-wrap input { width: 100%; padding: 10px 44px 10px 10px; font-size: 12.5px; }
 .key-box .key-wrap { margin-bottom: 8px; }
 .key-box .hint { font-size: 10.5px; color: var(--faint); line-height: 1.6; margin-top: 8px; }
 .key-box .hint a { color: var(--accent); text-decoration: none; }

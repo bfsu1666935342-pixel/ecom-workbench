@@ -147,7 +147,7 @@ async function main() {
     await shot('01-onboarding.png');
 
     await evaluate(
-      "localStorage.setItem('ecom.key','sk-demo'); localStorage.setItem('ecom.settings', JSON.stringify({model:'deepseek-flash',thinking:true,search:true,theme:'light'})); location.reload();"
+      "localStorage.setItem('ecom.key','sk-demo-1234567890abcdefghijklmnopqrstuvwxyz'); localStorage.setItem('ecom.settings', JSON.stringify({model:'deepseek-flash',thinking:true,search:true,theme:'light'})); location.reload();"
     );
     await sleep(1800);
     await shot('02-welcome.png');
@@ -185,6 +185,8 @@ async function main() {
 
     await evaluate('document.querySelector("#settingsBtn").click()');
     await sleep(500);
+    await evaluate('document.querySelector("#setKey").focus()');
+    await sleep(200);
     await shot('06-settings.png');
     await evaluate('document.querySelector(".modal [data-close]").click()');
     await sleep(300);
