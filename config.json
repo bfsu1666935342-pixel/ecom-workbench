@@ -6,5 +6,6 @@
   "apiBase": "https://api.deepseek.com",
   "model": "deepseek-flash",
   "maxSteps": 10,
+  "extraSkillsDirs": ["../ecom-skills"],
   "version": "1.2.3"
 }

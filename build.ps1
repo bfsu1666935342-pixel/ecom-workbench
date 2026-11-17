@@ -30,6 +30,26 @@ foreach ($item in $items) {
   Copy-Item $src (Join-Path $stage $item) -Recurse -Force
 }
 
+# 外部技能目录（config.json 的 extraSkillsDirs）在打包时快照进 skills/，
+# 这样发出去的包里技能是全的，而对方电脑上不需要存在那个外部目录。
+$extraDirs = @()
+if ($cfg -and $cfg.extraSkillsDirs) { $extraDirs = @($cfg.extraSkillsDirs) }
+foreach ($rel in $extraDirs) {
+  if (-not $rel) { continue }
+  $src = Join-Path $root $rel
+  if (-not (Test-Path $src)) {
+    Write-Host "跳过不存在的技能目录：$rel"
+    continue
+  }
+  $dstSkills = Join-Path $stage 'skills'
+  New-Item -ItemType Directory -Force -Path $dstSkills | Out-Null
+  # 只复制技能目录，跳过 .git、README、.gitignore 这些仓库文件
+  Get-ChildItem $src -Directory -Force | Where-Object { $_.Name -notlike '.*' } | ForEach-Object {
+    Copy-Item $_.FullName (Join-Path $dstSkills $_.Name) -Recurse -Force
+  }
+  Write-Host "已合并外部技能目录：$rel"
+}
+
 # 不带个人数据、不带截图、不带测试
 foreach ($junk in @('data', 'workspace', 'tests', 'scripts', 'node_modules')) {
   $p = Join-Path $stage $junk

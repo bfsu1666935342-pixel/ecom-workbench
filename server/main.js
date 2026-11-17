@@ -13,14 +13,14 @@ const { mimeFor, sendText } = require('./util');
 
 const cfg = loadConfig();
 const store = new Store(cfg.root);
-const skills = loadSkills(cfg.root);
+const skills = loadSkills(cfg.skillsDirs);
 
 // 技能热重载：改完 SKILL.md / skill.json 不用重启服务，刷新页面即可生效。
 // 原地替换数组内容，这样 api.js 里已经拿到的引用会自动看到新数据。
 function reloadSkills() {
   let next;
   try {
-    next = loadSkills(cfg.root);
+    next = loadSkills(cfg.skillsDirs);
   } catch (err) {
     console.error('  [skills] 重载失败，继续用上一版：' + ((err && err.message) || err));
     return false;
@@ -33,17 +33,23 @@ function reloadSkills() {
 
 function watchSkills() {
   if (process.env.ECOM_NO_WATCH === '1' || process.env.ECOM_TEST === '1') return;
-  let timer = null;
-  try {
-    const watcher = fs.watch(path.join(cfg.root, 'skills'), { recursive: true }, (event, file) => {
-      if (file && !/\.(md|json)$/i.test(String(file))) return;
-      clearTimeout(timer);
-      timer = setTimeout(reloadSkills, 150);
-    });
-    watcher.on('error', () => {});
-  } catch {
-    /* 个别环境不支持 recursive watch，退化成重启服务即可 */
-  }
+  const watched = new Set();
+  const watchDir = (dir) => {
+    if (!dir || watched.has(dir) || !fs.existsSync(dir)) return;
+    watched.add(dir);
+    let timer = null;
+    try {
+      const watcher = fs.watch(dir, { recursive: true }, (event, file) => {
+        if (file && !/\.(md|json)$/i.test(String(file))) return;
+        clearTimeout(timer);
+        timer = setTimeout(reloadSkills, 150);
+      });
+      watcher.on('error', () => {});
+    } catch {
+      /* 个别环境不支持 recursive watch，退化成重启服务即可 */
+    }
+  };
+  for (const dir of cfg.skillsDirs) watchDir(dir);
 }
 
 const mcp = new McpManager({ dataDir: store.dataDir, version: cfg.version });
@@ -209,7 +215,8 @@ async function main() {
   console.log('  ' + '─'.repeat(46));
   console.log('  地址    ' + url);
   console.log('  工作区  ' + store.workspace);
-  console.log('  技能    ' + skills.length + ' 个');
+  const extraDirs = cfg.extraSkillsDirs.filter((d) => fs.existsSync(d));
+  console.log('  技能    ' + skills.length + ' 个' + (extraDirs.length ? '（外部目录：' + extraDirs.map((d) => path.basename(d)).join('、') + '）' : ''));
   console.log('  数据源  ' + mcp.connectedCount() + ' 个已连接');
   console.log('  ' + '─'.repeat(46));
   console.log('  关闭这个窗口即可停止服务。');

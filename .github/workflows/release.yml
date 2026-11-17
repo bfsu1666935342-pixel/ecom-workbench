@@ -31,6 +31,15 @@ jobs:
           node tests/tools.test.js
           node tests/mcp.test.js
 
+      # 技能放在单独的仓库里。clone 到仓库旁边的 ../ecom-skills，
+      # 正好是 config.json 里 extraSkillsDirs 写的位置，build.ps1 会把它快照进 zip。
+      # 仓库还没建好时这一步失败不影响出包（用仓库内 skills/ 的版本）。
+      - name: 拉取技能库
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          git clone --depth 1 https://github.com/bfsu1666935342-pixel/ecom-skills.git ..\ecom-skills
+
       - name: Build portable zip
         shell: pwsh
         run: ./build.ps1

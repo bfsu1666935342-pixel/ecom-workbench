@@ -14,6 +14,7 @@ const DEFAULTS = {
   model: 'deepseek-flash',
   maxSteps: 10,
   version: '1.0.0',
+  extraSkillsDirs: [],
 };
 
 function loadConfig() {
@@ -34,6 +35,19 @@ function loadConfig() {
   cfg.apiBase = String(cfg.apiBase || DEFAULTS.apiBase).replace(/\/+$/, '');
   cfg.maxSteps = Math.max(1, Math.min(30, Number(cfg.maxSteps) || DEFAULTS.maxSteps));
   cfg.root = ROOT;
+
+  // 技能目录：内置 skills/ 在前，extraSkillsDirs 在后（同一个 id 后面的覆盖前面的）。
+  // 这样技能可以放在单独的仓库里，工作台直接读它，不用复制进来。
+  const declared = cfg.extraSkillsDirs;
+  let extra = Array.isArray(declared) ? declared : declared ? [declared] : [];
+  if (process.env.ECOM_SKILLS_DIR) {
+    extra = String(process.env.ECOM_SKILLS_DIR).split(';');
+  }
+  cfg.extraSkillsDirs = extra
+    .filter((p) => typeof p === 'string' && p.trim())
+    .map((p) => path.resolve(ROOT, p.trim()));
+  cfg.skillsDirs = [path.join(ROOT, 'skills'), ...cfg.extraSkillsDirs];
+
   return cfg;
 }
 
