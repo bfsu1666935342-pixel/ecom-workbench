@@ -45,7 +45,7 @@ cd /opt/ecom/ecom-workbench
 
 # 允许 ecom 用户免密重启服务（路径按 which systemctl 调整）
 sudo visudo -f /etc/sudoers.d/ecom-workbench
-# 写入：ecom ALL=(root) NOPASSWD: /bin/systemctl restart ecom-workbench
+# 写入：ecom ALL=(root) NOPASSWD: /usr/bin/systemctl restart ecom-workbench
 
 sudo cp deploy/ecom-update.service deploy/ecom-update.timer /etc/systemd/system/
 sudo systemctl daemon-reload
