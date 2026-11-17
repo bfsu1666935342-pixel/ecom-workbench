@@ -12,6 +12,83 @@
 
 ---
 
+## 如果你只是要「更新方便」：源码直跑 + 自动更新
+
+工作台还没完善时，**不要每改一次就打 zip、发 Release、下载解压**。更省事的方式是：
+
+- 服务器上直接 `git clone` 两个仓库，用系统 Node 跑源码；
+- 服务器每 2 分钟拉一次 `main`；
+- 只改技能 → 工作台热重载，浏览器 F5；
+- 改了服务端代码 → 自动重启一次；
+- `data/` 和 `workspace/` 不进 Git，更新不会丢对话、MCP Key 和文件。
+
+这样你在公司/家里改完：
+
+```bash
+git push
+```
+
+域名那边最多 2 分钟就是新版本，不用打包、不用发给别人。
+
+### 先按第 1～4 节把服务跑起来
+
+自动更新只是加在已经能运行的实例上。先完成：
+
+1. `/opt/ecom/ecom-workbench` 和 `/opt/ecom/ecom-skills` 两个仓库并排；
+2. systemd 的 `ecom-workbench` 能正常启动；
+3. Caddy + Basic Auth 能打开域名。
+
+### 装自动更新
+
+```bash
+cd /opt/ecom/ecom-workbench
+
+# 允许 ecom 用户免密重启服务（路径按 which systemctl 调整）
+sudo visudo -f /etc/sudoers.d/ecom-workbench
+# 写入：ecom ALL=(root) NOPASSWD: /bin/systemctl restart ecom-workbench
+
+sudo cp deploy/ecom-update.service deploy/ecom-update.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now ecom-update.timer
+
+# 立刻手动跑一次，确认能拉到代码
+sudo systemctl start ecom-update.service
+journalctl -u ecom-update.service -n 30 --no-pager
+```
+
+之后每 2 分钟检查一次。看下一次触发：
+
+```bash
+systemctl list-timers | grep ecom
+```
+
+### 手动更新
+
+不想等 2 分钟，或想先看输出：
+
+```bash
+cd /opt/ecom/ecom-workbench
+bash deploy/update.sh
+```
+
+脚本会：
+
+1. `git fetch` + `reset --hard origin/main` 工作台；
+2. 同样更新 `ecom-skills`；
+3. 如果工作台代码变了，`systemctl restart ecom-workbench`；
+4. 如果只有技能变了，不重启，等热重载。
+
+### 注意
+
+- 服务器上的两个 checkout 是**只读部署目录**，不要在服务器上改代码；本地改完 push，服务器 `reset --hard` 会覆盖。
+- 现在默认跟 `main`，push 到 main 就等于上线。工作台还不完善时，建议：
+  - 平时在 `preview` 分支改，稳定后再合到 main；或
+  - 把 `deploy/ecom-update.service` 里的 `ECOM_BRANCH` 改成 `preview`。
+- 如果服务重启失败，域商会看到 502；先看 `journalctl -u ecom-workbench -n 100`，修完再 push。
+- GitHub 在服务器上拉不动时，先解决服务器到 GitHub 的网络（代理/镜像），自动更新脚本本身不负责翻墙。
+
+---
+
 ## 需要准备
 
 1. 一台 Linux 服务器（2 核 2G 起，Ubuntu 24.04 即可）

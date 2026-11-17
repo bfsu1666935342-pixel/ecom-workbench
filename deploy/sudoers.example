@@ -1,0 +1,4 @@
+# 让 ecom 用户可以不输密码重启工作台（自动更新用）
+# 安装：sudo visudo -f /etc/sudoers.d/ecom-workbench
+# 内容改成下面这行；路径按 `which systemctl` 改成 /usr/bin/systemctl 或 /bin/systemctl
+ecom ALL=(root) NOPASSWD: /bin/systemctl restart ecom-workbench

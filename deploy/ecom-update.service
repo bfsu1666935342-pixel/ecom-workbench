@@ -1,0 +1,14 @@
+[Unit]
+Description=Ecom Workbench auto update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ecom
+Group=ecom
+WorkingDirectory=/opt/ecom/ecom-workbench
+Environment=ECOM_APP_DIR=/opt/ecom/ecom-workbench
+Environment=ECOM_SKILLS_DIR=/opt/ecom/ecom-skills
+Environment=ECOM_BRANCH=main
+ExecStart=/bin/bash /opt/ecom/ecom-workbench/deploy/update.sh
