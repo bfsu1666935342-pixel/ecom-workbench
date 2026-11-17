@@ -14,6 +14,38 @@ const { mimeFor, sendText } = require('./util');
 const cfg = loadConfig();
 const store = new Store(cfg.root);
 const skills = loadSkills(cfg.root);
+
+// 技能热重载：改完 SKILL.md / skill.json 不用重启服务，刷新页面即可生效。
+// 原地替换数组内容，这样 api.js 里已经拿到的引用会自动看到新数据。
+function reloadSkills() {
+  let next;
+  try {
+    next = loadSkills(cfg.root);
+  } catch (err) {
+    console.error('  [skills] 重载失败，继续用上一版：' + ((err && err.message) || err));
+    return false;
+  }
+  skills.length = 0;
+  skills.push(...next);
+  console.log('  [' + new Date().toTimeString().slice(0, 8) + '] 技能已重载：' + skills.length + ' 个');
+  return true;
+}
+
+function watchSkills() {
+  if (process.env.ECOM_NO_WATCH === '1' || process.env.ECOM_TEST === '1') return;
+  let timer = null;
+  try {
+    const watcher = fs.watch(path.join(cfg.root, 'skills'), { recursive: true }, (event, file) => {
+      if (file && !/\.(md|json)$/i.test(String(file))) return;
+      clearTimeout(timer);
+      timer = setTimeout(reloadSkills, 150);
+    });
+    watcher.on('error', () => {});
+  } catch {
+    /* 个别环境不支持 recursive watch，退化成重启服务即可 */
+  }
+}
+
 const mcp = new McpManager({ dataDir: store.dataDir, version: cfg.version });
 const api = createApi({ cfg, store, skills, mcp });
 
@@ -171,6 +203,7 @@ async function main() {
     process.exit(1);
   }
   const url = 'http://127.0.0.1:' + port + '/';
+  watchSkills();
   console.log('');
   console.log('  ' + cfg.brand + '  v' + cfg.version);
   console.log('  ' + '─'.repeat(46));
