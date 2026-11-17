@@ -45,7 +45,19 @@ foreach ($rel in $extraDirs) {
   New-Item -ItemType Directory -Force -Path $dstSkills | Out-Null
   # 只复制技能目录，跳过 .git、README、.gitignore 这些仓库文件
   Get-ChildItem $src -Directory -Force | Where-Object { $_.Name -notlike '.*' } | ForEach-Object {
-    Copy-Item $_.FullName (Join-Path $dstSkills $_.Name) -Recurse -Force
+    $metaFile = Join-Path $_.FullName 'skill.json'
+    $skip = $false
+    if (Test-Path $metaFile) {
+      try {
+        $meta = Get-Content $metaFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($meta.status -eq 'dsh-only') { $skip = $true }
+      } catch { }
+    }
+    if ($skip) {
+      Write-Host "跳过 dsh-only 技能：$($_.Name)"
+    } else {
+      Copy-Item $_.FullName (Join-Path $dstSkills $_.Name) -Recurse -Force
+    }
   }
   Write-Host "已合并外部技能目录：$rel"
 }

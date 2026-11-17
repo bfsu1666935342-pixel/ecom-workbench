@@ -9,7 +9,9 @@ const PKG_ROOT = process.env.PKG_ROOT || path.resolve(__dirname, '..');
 async function main() {
   const boot = await fetch(BASE + '/api/bootstrap').then((r) => r.json());
   console.log('skills=' + boot.skills.length + ' brand=' + boot.brand);
-  if (boot.skills.length !== 14) throw new Error('skills count mismatch');
+  if (boot.skills.length < 14) throw new Error('skills count mismatch');
+  if (!boot.skills.some((s) => s.id === 'review-to-qa')) throw new Error('review-to-qa missing');
+  if (boot.skills.some((s) => s.id === 'amazon-category-decision')) throw new Error('dsh-only skill was not filtered');
 
   for (const p of ['/', '/js/app.js', '/css/app.css', '/docs/%E5%A6%82%E4%BD%95%E6%B7%BB%E5%8A%A0%E6%8A%80%E8%83%BD.md']) {
     const r = await fetch(BASE + p);

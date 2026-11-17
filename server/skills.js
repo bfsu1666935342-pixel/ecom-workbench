@@ -25,6 +25,8 @@ function loadSkills(dirs) {
         const md = fs.readFileSync(mdFile, 'utf8');
         const fm = parseFrontmatter(md);
         const meta = readJson(path.join(base, 'skill.json'), {}) || {};
+        // dsh-only：需要 DSH 的终端/Python 能力，独立工作台里跑不动，先隐藏。
+        if (meta.status === 'dsh-only') continue;
         const id = meta.id || fm.name || entry.name;
         const body = stripFrontmatter(md);
         const h1 = (body.match(/^\s*#\s+(.+)$/m) || [])[1];
