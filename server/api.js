@@ -38,14 +38,34 @@ function createApi(ctx) {
     };
   }
 
+  function originAllowed(req, origin) {
+    if (!origin) return true;
+    if (/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i.test(origin)) return true;
+
+    const configured = String(process.env.ECOM_PUBLIC_ORIGIN || '').replace(/\/+$/, '');
+    if (configured && origin === configured) return true;
+
+    try {
+      const parsed = new URL(origin);
+      const host = String(req.headers['x-forwarded-host'] || req.headers.host || '')
+        .split(',')[0]
+        .trim();
+      const proto = String(req.headers['x-forwarded-proto'] || (req.socket.encrypted ? 'https' : 'http'))
+        .split(',')[0]
+        .trim();
+      return Boolean(host) && parsed.host === host && parsed.protocol === proto + ':';
+    } catch {
+      return false;
+    }
+  }
+
   async function handle(req, res, url) {
     const pathname = url.pathname;
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       const origin = req.headers.origin;
       const crossSite = req.headers['sec-fetch-site'] === 'cross-site';
-      const localOrigin = !origin || /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i.test(origin);
-      if (crossSite || !localOrigin) {
+      if (crossSite || !originAllowed(req, origin)) {
         sendJson(res, 403, { error: '跨站请求被拒绝' });
         return true;
       }

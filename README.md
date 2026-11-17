@@ -1,4 +1,4 @@
-# 跨境 AI 工作台 · Ecom Workbench v1.2.5
+# 跨境 AI 工作台 · Ecom Workbench v1.2.6
 
 一个**免安装**的亚马逊运营 AI 工作台。解压后双击 `Start.bat`（或 `启动.bat`），浏览器自动打开；填入自己的 DeepSeek API Key 就能用。
 
@@ -10,6 +10,12 @@
   - `https://github.com/bfsu1666935342-pixel/ecom-workbench/releases/latest`
 - **在不同电脑上继续改**：仓库 clone 下来，`git pull` 更新；打包用 `打包.ps1`，开发用 `dev.bat`。
 - 详细流程（创建仓库、打标签、GitHub Actions 自动发布）见 [`docs/GitHub发布.md`](docs/GitHub发布.md)。
+
+## 用域名访问（不下载、不解压）
+
+工作台本身是一个本地 Node 服务，不能直接放 GitHub Pages/静态空间。要让同事打开域名就能用，需要一台服务器 + 域名 + Caddy 反代 + 登录密码，步骤见 **[deploy/README.md](deploy/README.md)**。
+
+> 当前是**单用户**工具：同一个域名/登录后面，所有人共享对话、workspace 和 MCP Key。只适合你自己从公司/家里访问；多人各自隔离要一人一实例或改造成多用户。
 
 ---
 
@@ -185,6 +191,6 @@ EcomWorkbench/
 
 ## 版本
 
-v1.2.5 · 2026-11
+v1.2.6 · 2026-11
 
 内置 Node.js v24.18.0（MIT License）。

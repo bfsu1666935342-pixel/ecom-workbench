@@ -1,0 +1,21 @@
+# Caddy 反向代理示例
+# 1. 把 work.example.com 换成你的域名
+# 2. 用 `caddy hash-password --plaintext '你的密码'` 生成密码哈希
+# 3. 把 <BCRYPT_HASH> 换成哈希（整段带 $ 符号）
+# 4. `sudo caddy reload --config /etc/caddy/Caddyfile`
+#
+# 注意：当前工作台是单用户工具，Basic Auth 后面所有访问者共享
+# 同一份 data/（对话、MCP Key）和 workspace/（文件）。
+
+work.example.com {
+	encode zstd gzip
+
+	basic_auth {
+		ecom <BCRYPT_HASH>
+	}
+
+	reverse_proxy 127.0.0.1:7861 {
+		# LLM 回答和技能运行记录是流式的，别让反代攒着
+		flush_interval -1
+	}
+}

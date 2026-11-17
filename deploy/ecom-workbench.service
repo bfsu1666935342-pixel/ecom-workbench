@@ -1,0 +1,22 @@
+[Unit]
+Description=Ecom Workbench
+After=network.target
+
+[Service]
+Type=simple
+User=ecom
+Group=ecom
+WorkingDirectory=/opt/ecom/ecom-workbench
+Environment=ECOM_NO_OPEN=1
+Environment=ECOM_HOST=127.0.0.1
+Environment=ECOM_PUBLIC_ORIGIN=https://work.example.com
+ExecStart=/usr/bin/node server/main.js --no-open
+Restart=always
+RestartSec=2
+
+# 数据在 /opt/ecom/ecom-workbench/data 和 workspace，按需做备份
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

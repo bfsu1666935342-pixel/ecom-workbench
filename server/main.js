@@ -162,7 +162,7 @@ function listen(port, attempts = 0) {
     };
     server.once('error', onError);
     server.once('listening', onListening);
-    server.listen(port, '127.0.0.1');
+    server.listen(port, process.env.ECOM_HOST || '127.0.0.1');
   });
 }
 
