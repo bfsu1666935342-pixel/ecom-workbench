@@ -1317,3 +1317,20 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .run-file { font-size: 11.5px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: var(--ink-2); }
 .run-file:hover { border-color: var(--accent); color: var(--accent); }
 .btn.small { height: 28px; padding: 0 12px; font-size: 11.5px; flex: none; }
+
+/* ---- 员工 ---- */
+.agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.agent-card { display: flex; gap: 14px; align-items: flex-start; text-align: left; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); cursor: pointer; transition: border-color 0.12s var(--ease), background-color 0.12s var(--ease); }
+.agent-card:hover { border-color: var(--line-strong); background: var(--raised); }
+.agent-icon { font-size: 26px; line-height: 1; flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: var(--r-sm); background: var(--raised); }
+.agent-body { min-width: 0; }
+.agent-title { font-size: 14px; font-weight: 600; }
+.agent-tagline { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.55; }
+.agent-skills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.agent-skill { font-size: 10.5px; padding: 3px 8px; border-radius: 999px; background: var(--raised); color: var(--ink-2); border: 1px solid var(--line); }
+.agent-skill.editable { display: inline-flex; align-items: center; gap: 4px; padding-right: 4px; }
+.agent-skill.editable button { border: 0; background: none; color: var(--faint); cursor: pointer; font-size: 13px; line-height: 1; padding: 0 3px; }
+.agent-skill.editable button:hover { color: var(--danger); }
+.agent-skill-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
+.agent-add { display: flex; gap: 8px; align-items: center; }
+.agent-add select { flex: 1; }

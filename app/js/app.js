@@ -11,6 +11,8 @@
   const state = {
     cfg: null,
     skills: [],
+    agents: [],
+    agent: null,
     sessions: [],
     session: null,
     messages: [],
@@ -45,6 +47,7 @@
       const data = await resp.json();
       state.cfg = data;
       state.skills = data.skills || [];
+      state.agents = data.agents || [];
       state.sessions = data.sessions || [];
       state.mcp = data.mcp || { servers: [], connected: 0, toolCount: 0 };
       buildSkillOrder();
@@ -153,6 +156,10 @@
     if (mcpCount) mcpCount.textContent = state.mcp && state.mcp.connected ? state.mcp.connected : 0;
     const pageCount = $('#skillsPageCount');
     if (pageCount) pageCount.textContent = state.skills.length;
+    const agentCount = $('#navAgentCount');
+    if (agentCount) agentCount.textContent = state.agents.length;
+    const agentsPage = $('#agentsPageCount');
+    if (agentsPage) agentsPage.textContent = state.agents.length;
   }
 
   function renderSkillFilters() {
@@ -223,10 +230,142 @@
     }
   }
 
+
+  // ---------------- 员工 ----------------
+
+  function agentSkills(agent) {
+    return (agent.skills || []).map((id) => state.skills.find((s) => s.id === id)).filter(Boolean);
+  }
+
+  function renderAgentsPage() {
+    const box = $('#agentGrid');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!state.agents.length) {
+      box.innerHTML = '<p class="run-hint">还没有员工。往技能库的 agents/ 目录里加一个 agent.json 就有了。</p>';
+      return;
+    }
+    for (const agent of state.agents) {
+      const skills = agentSkills(agent);
+      const el = document.createElement('button');
+      el.className = 'agent-card';
+      el.type = 'button';
+      el.innerHTML =
+        '<div class="agent-icon">' + esc(agent.icon || '🧑‍💼') + '</div>' +
+        '<div class="agent-body"><div class="agent-title">' + esc(agent.title) + '</div>' +
+        '<div class="agent-tagline">' + esc(agent.tagline || '') + '</div>' +
+        '<div class="agent-skills">' +
+        skills.map((s) => '<span class="agent-skill">' + esc(s.title) + '</span>').join('') +
+        (skills.length ? '' : '<span class="run-hint">还没有技能</span>') +
+        '</div></div>';
+      el.addEventListener('click', () => openAgent(agent));
+      box.append(el);
+    }
+  }
+
+  async function saveAgentSkills(agent, nextSkills) {
+    const resp = await fetch('/api/agent/skills', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agentId: agent.id, skills: nextSkills }),
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      alert('保存失败：' + (data.error || '未知原因'));
+      return false;
+    }
+    agent.skills = nextSkills;
+    if (state.agent && state.agent.id === agent.id) state.agent = agent;
+    return true;
+  }
+
+  function openAgent(agent) {
+    const skills = agentSkills(agent);
+    const rest = state.skills.filter((s) => !(agent.skills || []).includes(s.id));
+
+    const render = () => {
+      const owned = agentSkills(agent);
+      const left = state.skills.filter((s) => !(agent.skills || []).includes(s.id));
+      return (
+        '<div class="modal-head"><div class="skill-hero"><div class="skill-no">' + esc(agent.icon || '🧑‍💼') + '</div>' +
+        '<div><div class="skill-group-tag">员工</div><h2>' + esc(agent.title) + '</h2>' +
+        '<div class="tag">' + esc(agent.tagline || '') + '</div></div></div>' +
+        '<button class="modal-close" data-close type="button">×</button></div>' +
+        '<p class="skill-desc">' + esc(agent.description || '') + '</p>' +
+        '<h3>岗位技能（' + owned.length + '）</h3>' +
+        '<div class="agent-skill-list">' +
+        (owned.length
+          ? owned
+              .map(
+                (s) =>
+                  '<span class="agent-skill editable">' + esc(s.title) +
+                  '<button type="button" data-remove="' + esc(s.id) + '" title="移除">×</button></span>'
+              )
+              .join('')
+          : '<span class="run-hint">还没有技能</span>') +
+        '</div>' +
+        (left.length
+          ? '<h3>给它加一个技能</h3><div class="agent-add"><select id="agentAddSkill">' +
+            left.map((s) => '<option value="' + esc(s.id) + '">' + esc(s.title) + '</option>').join('') +
+            '</select><button class="btn small" type="button" data-add-skill>添加</button></div>'
+          : '') +
+        '<div class="modal-actions"><button class="btn ghost" data-close type="button">取消</button>' +
+        '<button class="btn primary" data-start-agent type="button">用这名员工开始</button></div>'
+      );
+    };
+
+    let closeFn = null;
+    const mount = () => {
+      if (closeFn) closeFn();
+      closeFn = showModal(render(), { wide: true });
+      const modal = closeFn.modal;
+      const refresh = () => {
+        mount();
+        renderAgentsPage();
+      };
+      modal.querySelectorAll('[data-remove]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.remove;
+          if (await saveAgentSkills(agent, (agent.skills || []).filter((x) => x !== id))) refresh();
+        });
+      });
+      const addBtn = modal.querySelector('[data-add-skill]');
+      if (addBtn) {
+        addBtn.addEventListener('click', async () => {
+          const sel = modal.querySelector('#agentAddSkill');
+          if (!sel || !sel.value) return;
+          if (await saveAgentSkills(agent, [...(agent.skills || []), sel.value])) refresh();
+        });
+      }
+      modal.querySelector('[data-start-agent]').addEventListener('click', () => {
+        closeFn();
+        startAgent(agent);
+      });
+    };
+    mount();
+    void skills;
+    void rest;
+  }
+
+  function startAgent(agent) {
+    state.agent = agent;
+    state.skill = null;
+    if (state.session) {
+      state.session.skillId = null;
+      state.session.agentId = agent ? agent.id : null;
+    }
+    newChat(true);
+    showView('chat');
+    updateSkillUI();
+    const input = $('#input');
+    if (input) input.focus();
+  }
+
   function showView(view) {
     state.view = view;
     $('#chatView').classList.toggle('hidden', view !== 'chat');
     $('#skillsView').classList.toggle('hidden', view !== 'skills');
+    $('#agentsView').classList.toggle('hidden', view !== 'agents');
     $('#mcpView').classList.toggle('hidden', view !== 'mcp');
     $$('.nav-item').forEach((btn) => btn.classList.toggle('active', btn.dataset.view === view));
     if (view === 'chat') {
@@ -234,6 +373,10 @@
       updateSkillUI();
     } else if (view === 'skills') {
       $('#chatTitle').textContent = '技能库';
+      updateSkillUI();
+    } else if (view === 'agents') {
+      $('#chatTitle').textContent = '员工';
+      renderAgentsPage();
       updateSkillUI();
       renderSkillFilters();
       renderSkillsPage();
@@ -636,6 +779,7 @@
       state.session = session;
       state.messages = Array.isArray(session.ui) ? session.ui : [];
       state.skill = session.skillId ? state.skills.find((s) => s.id === session.skillId) || null : null;
+    state.agent = session.agentId ? state.agents.find((a) => a.id === session.agentId) || null : null;
       $('#messages').innerHTML = '';
       state.live = null;
       for (const msg of state.messages) appendMessage(msg, false);
@@ -970,6 +1114,7 @@
           text,
           files,
           skillId: skill ? skill.id : null,
+          agentId: state.agent ? state.agent.id : null,
           options: { thinking: Boolean(state.settings.thinking), search: Boolean(state.settings.search) },
           model: state.settings.model,
         }),
@@ -1510,6 +1655,17 @@
   }
 
   function updateSkillUI() {
+    const agentChip = $('#agentChip');
+    if (agentChip) {
+      if (state.agent) {
+        agentChip.classList.remove('hidden');
+        agentChip.innerHTML =
+          '<span class="chip-no">员工</span><span>' + esc(state.agent.title) + '</span>';
+        agentChip.title = '点击更换员工';
+      } else {
+        agentChip.classList.add('hidden');
+      }
+    }
     const chip = $('#skillChip');
     const banner = $('#skillBanner');
     if (state.skill) {
@@ -1802,6 +1958,8 @@
     $('#skillChip').addEventListener('click', () => {
       if (state.skill) openSkill(state.skill);
     });
+    const agentChipBtn = $('#agentChip');
+    if (agentChipBtn) agentChipBtn.addEventListener('click', () => showView('agents'));
     $('#settingsBtn').addEventListener('click', showSettings);
     $('#themeBtn').addEventListener('click', () => {
       const dark = document.documentElement.dataset.theme === 'dark';

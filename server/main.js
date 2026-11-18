@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const { loadConfig } = require('./config');
 const { Store } = require('./store');
 const { loadSkills } = require('./skills');
+const { loadAgents } = require('./agents');
 const { McpManager } = require('./mcp');
 const { createApi, friendlyError } = require('./api');
 const { mimeFor, sendText } = require('./util');
@@ -14,6 +15,7 @@ const { mimeFor, sendText } = require('./util');
 const cfg = loadConfig();
 const store = new Store(cfg.root);
 const skills = loadSkills(cfg.skillsDirs);
+const agents = loadAgents(cfg.skillsDirs);
 
 // 技能热重载：改完 SKILL.md / skill.json 不用重启服务，刷新页面即可生效。
 // 原地替换数组内容，这样 api.js 里已经拿到的引用会自动看到新数据。
@@ -27,7 +29,12 @@ function reloadSkills() {
   }
   skills.length = 0;
   skills.push(...next);
-  console.log('  [' + new Date().toTimeString().slice(0, 8) + '] 技能已重载：' + skills.length + ' 个');
+  const nextAgents = loadAgents(cfg.skillsDirs);
+  agents.length = 0;
+  agents.push(...nextAgents);
+  console.log(
+    '  [' + new Date().toTimeString().slice(0, 8) + '] 技能已重载：' + skills.length + ' 个 · 员工 ' + agents.length + ' 名'
+  );
   return true;
 }
 
@@ -53,7 +60,7 @@ function watchSkills() {
 }
 
 const mcp = new McpManager({ dataDir: store.dataDir, version: cfg.version });
-const api = createApi({ cfg, store, skills, mcp });
+const api = createApi({ cfg, store, skills, agents, mcp });
 
 const APP_DIR = path.join(cfg.root, 'app');
 const DOCS_DIR = path.join(cfg.root, 'docs');
@@ -217,6 +224,7 @@ async function main() {
   console.log('  工作区  ' + store.workspace);
   const extraDirs = cfg.extraSkillsDirs.filter((d) => fs.existsSync(d));
   console.log('  技能    ' + skills.length + ' 个' + (extraDirs.length ? '（外部目录：' + extraDirs.map((d) => path.basename(d)).join('、') + '）' : ''));
+  console.log('  员工    ' + agents.length + ' 名');
   console.log('  数据源  ' + mcp.connectedCount() + ' 个已连接');
   console.log('  ' + '─'.repeat(46));
   console.log('  关闭这个窗口即可停止服务。');

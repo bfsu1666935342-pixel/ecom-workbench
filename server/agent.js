@@ -38,7 +38,7 @@ function nowText() {
   return get('year') + '-' + get('month') + '-' + get('day') + ' ' + get('weekday') + ' ' + get('hour') + ':' + get('minute') + '（北京时间）';
 }
 
-function systemPrompt({ cfg, skill, search, hasMcp }) {
+function systemPrompt({ cfg, skill, agent, skills, search, hasMcp }) {
   const lines = [];
   lines.push(
     '你是「' + cfg.brand + '」内置的亚马逊跨境电商运营 AI，服务中国卖家，覆盖选品、Listing、关键词、广告、竞品、差评、利润、库存、合规、客服等日常运营工作。',
@@ -68,6 +68,28 @@ function systemPrompt({ cfg, skill, search, hasMcp }) {
     '',
     '用户上传的 Excel / PDF / Word 已经作为文件内容传入对话，可以直接阅读；如果需要程序化处理，原始文件在 attachments/ 目录。',
   );
+  if (agent) {
+    const owned = Array.isArray(skills) ? skills : [];
+    const catalog = (agent.skills || [])
+      .map((id) => owned.find((s) => s.id === id))
+      .filter(Boolean)
+      .map((s) => '- `' + s.id + '` ' + s.title + (s.tagline ? ' —— ' + s.tagline : ''))
+      .join('\n');
+    lines.push(
+      '',
+      '# 你是「' + agent.title + '」',
+      '',
+      agent.body || agent.description || '',
+      '',
+      '## 你手上的技能',
+      '下面是这个岗位可用的专项技能。需要具体方法时，先用 load_skill(id) 取完整说明，**不要凭印象编流程**；拿到说明后按它执行。',
+      '',
+      catalog || '（暂时没有装配技能）',
+      '',
+      '用户也可能直接在技能库里单独用某个技能，那是另一条路径，不用特别解释。'
+    );
+  }
+
   if (skill && skill.runOnly && skill.body) {
     lines.push(
       '',
@@ -92,7 +114,7 @@ function systemPrompt({ cfg, skill, search, hasMcp }) {
       '',
       '（以上技能说明优先于通用风格，但不得违反“不编数字”的原则。）',
     );
-  } else {
+  } else if (!agent) {
     lines.push(
       '',
       '## 没有选择技能时',
@@ -164,6 +186,7 @@ function deriveTitle(text, skill) {
 async function runTurn(opts) {
   const { cfg, store, session, text, files, options, apiKey, signal, emit } = opts;
   const skill = opts.skill || null;
+  const agent = opts.agent || null;
   const mcp = opts.mcp || null;
 
   const userText = String(text || '').trim();
@@ -191,6 +214,8 @@ async function runTurn(opts) {
       content: systemPrompt({
         cfg,
         skill,
+        agent,
+        skills: opts.skills || [],
         search: Boolean(options.search),
         hasMcp: mcpDefs.length > 0,
       }),
@@ -205,6 +230,8 @@ async function runTurn(opts) {
     apiKey,
     baseUrl: cfg.apiBase,
     mcp,
+    skills: opts.skills || [],
+    allowedSkills: agent ? agent.skills || [] : null,
     noReportFiles: Boolean(skill && skill.runOnly),
     skillTitle: skill ? skill.title : '',
     emit: (ev) => {
@@ -219,7 +246,7 @@ async function runTurn(opts) {
       emit(ev);
     },
   });
-  const tools = [...toolDefs({ search: Boolean(options.search) }), ...mcpDefs];
+  const tools = [...toolDefs({ search: Boolean(options.search), agentSkills: agent ? agent.skills : null }), ...mcpDefs];
   const model =
     options.model && ['deepseek-flash', 'deepseek-v4-pro'].includes(options.model) ? options.model : cfg.model;
 

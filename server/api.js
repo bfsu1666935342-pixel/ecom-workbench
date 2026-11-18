@@ -17,11 +17,28 @@ const {
 } = require('./util');
 
 function createApi(ctx) {
-  const { cfg, store, skills, mcp } = ctx;
+  const { cfg, store, skills, agents, mcp } = ctx;
   const busy = new Set();
 
   function skillById(id) {
     return skills.find((s) => s.id === id) || null;
+  }
+
+  function agentById(id) {
+    return (agents || []).find((a) => a.id === id) || null;
+  }
+
+  function publicAgent(a) {
+    return {
+      id: a.id,
+      title: a.title,
+      icon: a.icon,
+      order: a.order,
+      tagline: a.tagline,
+      description: a.description,
+      skills: a.skills,
+      defaultSkill: a.defaultSkill,
+    };
   }
 
   function publicSkill(s) {
@@ -88,6 +105,7 @@ function createApi(ctx) {
         model: cfg.model,
         workspace: store.workspace,
         skills: skills.map(publicSkill),
+        agents: (agents || []).map(publicAgent),
         sessions: store.listSessions(),
         mcp: mcp.summary(),
       });
@@ -150,6 +168,27 @@ function createApi(ctx) {
       return true;
     }
 
+    // 给员工增删技能（写回 agent.json，热重载会自动生效）
+    if (pathname === '/api/agent/skills' && req.method === 'POST') {
+      try {
+        const body = await readJsonBody(req, 1024 * 1024);
+        const agent = agentById(String(body.agentId || ''));
+        if (!agent) {
+          sendJson(res, 404, { ok: false, error: '找不到这个员工' });
+          return true;
+        }
+        const wanted = Array.isArray(body.skills) ? body.skills.map(String) : [];
+        const valid = wanted.filter((id) => skillById(id));
+        const file = path.join(agent.source, 'agents', agent.dir, 'agent.json');
+        const raw = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
+        raw.skills = valid;
+        fs.writeFileSync(file, JSON.stringify(raw, null, 2) + '\n', 'utf8');
+        sendJson(res, 200, { ok: true, agent: { ...publicAgent(agent), skills: valid } });
+      } catch (err) {
+        sendJson(res, 400, { ok: false, error: friendlyError(err) });
+      }
+      return true;
+    }
     // 打开技能自己的文件夹（一般是 config/），让人可以直接改 JSON
     if (pathname === '/api/skill/open' && req.method === 'POST') {
       try {
@@ -395,7 +434,12 @@ function createApi(ctx) {
     if (!session) session = store.newSession(skill ? skill.id : null);
     if (skill) session.skillId = skill.id;
     else if (body.skillId === null) session.skillId = null;
-    const activeSkill = session.skillId ? skillById(session.skillId) : skill;
+const activeSkill = session.skillId ? skillById(session.skillId) : skill;
+
+    const agent = body.agentId ? agentById(body.agentId) : null;
+    if (agent) session.agentId = agent.id;
+    else if (body.agentId === null) session.agentId = null;
+    const activeAgent = session.agentId ? agentById(session.agentId) : null;
 
     if (busy.has(session.id)) {
       sendJson(res, 409, { error: '这个对话还在生成中，请稍候' });
@@ -439,6 +483,8 @@ function createApi(ctx) {
         store,
         session,
         skill: activeSkill,
+        agent: activeAgent,
+        skills,
         text: body.text,
         files: body.files || [],
         options: {

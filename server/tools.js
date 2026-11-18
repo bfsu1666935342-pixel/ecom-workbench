@@ -53,6 +53,24 @@ function trim(text, max = MAX_TOOL_RESULT) {
 
 function toolDefs(opts = {}) {
   const defs = [];
+  // 只有「带员工的会话」才有这个工具：按需装载岗位技能
+  if (Array.isArray(opts.agentSkills) && opts.agentSkills.length) {
+    defs.push({
+      type: 'function',
+      function: {
+        name: 'load_skill',
+        description:
+          '装载当前员工某个技能的完整说明（流程、模板、红线）。需要该技能的专项方法时先调用它，不要凭印象编流程。',
+        parameters: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: '技能 id，例如 market-scan' },
+          },
+          required: ['id'],
+        },
+      },
+    });
+  }
   if (opts.search) {
     defs.push({
       type: 'function',
@@ -177,6 +195,8 @@ class ToolRunner {
           return await this.readUrl(args);
         case 'list_files':
           return this.listFiles(args);
+        case 'load_skill':
+          return this.loadSkill(args);
         case 'read_file':
           return this.readFile(args);
         case 'write_file':
@@ -273,6 +293,17 @@ class ToolRunner {
     const max = Math.max(1000, Math.min(200000, Number(args.max_chars) || 60000));
     const text = fs.readFileSync(abs, 'utf8');
     return { ok: true, content: trim(text, max) };
+  }
+
+  loadSkill(args) {
+    const id = String(args.id || '').trim();
+    if (!id) return { ok: false, content: '缺少技能 id' };
+    if (this.allowedSkills && !this.allowedSkills.includes(id)) {
+      return { ok: false, content: '「' + id + '」不在当前员工的技能列表里，可选：' + (this.allowedSkills.join('、') || '（空）') };
+    }
+    const skill = (this.skills || []).find((s) => s.id === id);
+    if (!skill) return { ok: false, content: '没有这个技能：' + id };
+    return { ok: true, content: '# 技能：' + skill.title + '\n\n' + skill.body };
   }
 
   writeFile(args) {
