@@ -2060,18 +2060,34 @@
     });
     document.addEventListener('click', (e) => {
       const menu = $('#atMenu');
-      if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target)) closeAtMenu();
+      if (!menu || menu.classList.contains('hidden')) return;
+      if (menu.contains(e.target)) return;
+      // 触发按钮自己会开关菜单，别在这里抢先关掉
+      if (e.target.closest && e.target.closest('#agentBtn, #skillPickBtn')) return;
+      closeAtMenu();
     });
     const skillPickBtn = $('#skillPickBtn');
-    if (skillPickBtn) skillPickBtn.addEventListener('click', openSkillPicker);
+if (skillPickBtn) {
+      skillPickBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const menu = $('#atMenu');
+        if (menu && !menu.classList.contains('hidden')) {
+          closeAtMenu();
+          return;
+        }
+        openSkillPicker();
+      });
+    }
     const agentBtn = $('#agentBtn');
     if (agentBtn) {
-      agentBtn.addEventListener('click', () => {
-        const el = $('#input');
-        el.focus();
-        const pos = el.selectionStart || el.value.length;
-        el.value = el.value.slice(0, pos) + '@' + el.value.slice(pos);
-        el.selectionStart = el.selectionEnd = pos + 1;
+      agentBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const menu = $('#atMenu');
+        if (menu && !menu.classList.contains('hidden')) {
+          closeAtMenu();
+          return;
+        }
+        $('#input').focus();
         renderAtMenu('');
       });
     }
