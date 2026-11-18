@@ -341,6 +341,28 @@ function createApi(ctx) {
         };
         req.on('close', onClose);
 
+        const need = Array.isArray(skill.meta && skill.meta.requiresEnv) ? skill.meta.requiresEnv : [];
+        if (need.length) {
+          const have = require('./run').envFromMcp(store.dataDir);
+          const missing = need.filter((k) => !have[k]);
+          if (missing.length) {
+            sendJson(res, 200, {
+              ok: false,
+              code: null,
+              error:
+                '这个技能需要「' +
+                missing.join(' / ') +
+                '」，现在没有。到侧边栏「数据源」里把对应的服务商配好（保存即生效），再回来运行。',
+              missing,
+              injected: Object.keys(have),
+              output: '',
+              files: [],
+              ms: 0,
+            });
+            return true;
+          }
+        }
+
         const result = await runCommand({
           skill,
           index: body.index,

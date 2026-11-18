@@ -108,23 +108,34 @@ function envFromMcp(dataDir) {
     return '';
   };
 
+  const DEFAULTS = {
+    lingxing: 'https://openmcp.lingxing.com/mcp-servers/lingxing-mcp',
+    sorftime: 'https://mcp.sorftime.com',
+    sif: '',
+  };
+
   for (const server of servers) {
     // 不看 enabled：用户把 Key 填进去就是有意图用，界面的开关只影响 AI 侧
     if (!server) continue;
     const url = String(server.url || '').trim();
-    const host = url.toLowerCase();
     const token = String(server.token || '').trim() || fromHeaders(server.headers);
     const inline = secretOf(url);
-    if (host.includes('lingxing')) {
-      if (url) out.LINGXING_MCP_URL = url;
-      if (token || inline) out.LINGXING_MCP_KEY = token || inline;
-    } else if (host.includes('sorftime')) {
-      if (url) out.SORFTIME_MCP_URL = url;
-      if (token || inline) out.SORFTIME_MCP_KEY = token || inline;
-    } else if (host.includes('sif')) {
-      if (url) out.SIF_MCP_URL = url;
-      if (token || inline) out.SIF_MCP_KEY = token || inline;
-    }
+    // 认三个地方：URL 域名、数据源名称、预设 id。只填了 Key 没填地址也要认出来
+    const hay = [
+      url.toLowerCase(),
+      String(server.name || '').toLowerCase(),
+      String(server.preset || '').toLowerCase(),
+    ].join(' ');
+
+    const pick = (tag, prefixes) => {
+      if (!prefixes.some((p) => hay.includes(p))) return;
+      out[tag + '_MCP_URL'] = url || DEFAULTS[tag.toLowerCase()] || out[tag + '_MCP_URL'];
+      if (token || inline) out[tag + '_MCP_KEY'] = token || inline;
+    };
+
+    pick('LINGXING', ['lingxing', '领星']);
+    pick('SIF', ['sif', '卖家精灵', 'sellersprite']);
+    pick('SORFTIME', ['sorftime', '卖家穿海']);
   }
   return out;
 }
