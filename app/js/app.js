@@ -1770,16 +1770,37 @@
           (data.code !== undefined && data.code !== null ? '（退出码 ' + data.code + '）' : '') + '</div>';
       }
       if (Array.isArray(data.files) && data.files.length) {
+        const files = data.files.map(String);
+        const pattern = skill.primaryOutput ? new RegExp(skill.primaryOutput, 'i') : /\.html?$/i;
+        let primary = files.find((f) => pattern.test(f));
+        if (!primary) primary = files.find((f) => /\.(md|xlsx?|csv|pdf)$/i.test(f));
+        if (!primary) primary = files[0];
+        const rest = files.filter((f) => f !== primary);
+        const fileUrl = (f) => '/api/file?path=' + encodeURIComponent(f);
+        const baseName = (f) => String(f).split('/').pop();
+
         html +=
-          '<div class="run-files">' +
-          data.files
-            .map(
-              (f) =>
-                '<a class="run-file" target="_blank" rel="noopener" href="/api/file?path=' +
-                encodeURIComponent(f) + '">' + esc(String(f).split('/').pop()) + '</a>'
-            )
-            .join('') +
-          '</div><div class="run-hint" style="margin-top:6px">结果已复制到工作区「技能产出」</div>';
+          '<div class="run-primary">' +
+          '<div class="rp-tag">这份是你要的结果</div>' +
+          '<div class="rp-name">' + esc(baseName(primary)) + '</div>' +
+          '<div class="rp-actions">' +
+          '<a class="btn primary" target="_blank" rel="noopener" href="' + fileUrl(primary) + '">打开报告</a>' +
+          '<a class="btn ghost" href="' + fileUrl(primary) + '&download=1">下载</a>' +
+          '</div></div>';
+
+        if (rest.length) {
+          html +=
+            '<details class="run-rest"><summary>另有 ' + rest.length + ' 个过程文件（取数缓存，一般不用打开）</summary>' +
+            '<div class="run-files">' +
+            rest
+              .map(
+                (f) =>
+                  '<a class="run-file" target="_blank" rel="noopener" href="' + fileUrl(f) + '">' + esc(baseName(f)) + '</a>'
+              )
+              .join('') +
+            '</div></details>';
+        }
+        html += '<div class="run-hint" style="margin-top:6px">结果已复制到工作区「技能产出」</div>';
       }
       box.innerHTML = html;
     } catch (err) {

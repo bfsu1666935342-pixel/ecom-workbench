@@ -60,6 +60,7 @@ function createApi(ctx) {
       runOnly: Boolean(s.runOnly),
       commands: commandList(s),
       configFiles: s.meta && Array.isArray(s.meta.configFiles) ? s.meta.configFiles : [],
+      primaryOutput: s.meta && typeof s.meta.primaryOutput === 'string' ? s.meta.primaryOutput : '',
     };
   }
 

@@ -1402,3 +1402,13 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .cp-list { margin: 0 0 10px; padding-left: 18px; font-size: 12.5px; line-height: 1.75; }
 .cp-list li { color: var(--ink-2); }
 .cp-actions { display: flex; gap: 8px; }
+
+/* ---- 运行产出：主结果突出 ---- */
+.run-primary { margin-top: 10px; border: 1px solid var(--line-strong); border-radius: var(--r-card); padding: 14px 16px; background: var(--raised); display: flex; flex-direction: column; gap: 4px; }
+.rp-tag { font-size: 10px; letter-spacing: 0.04em; color: var(--faint); }
+.rp-name { font-family: var(--mono); font-size: 13px; color: var(--ink); }
+.rp-actions { display: flex; gap: 8px; margin-top: 8px; }
+.run-rest { margin-top: 10px; }
+.run-rest summary { font-size: 11px; color: var(--faint); cursor: pointer; padding: 4px 0; }
+.run-rest summary:hover { color: var(--muted); }
+.run-rest .run-files { margin-top: 6px; }
