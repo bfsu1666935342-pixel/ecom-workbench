@@ -12,7 +12,7 @@ const DEFAULTS = {
   port: 7861,
   apiBase: 'https://api.deepseek.com',
   model: 'deepseek-flash',
-  maxSteps: 10,
+  maxSteps: 16,
   version: '1.0.0',
   extraSkillsDirs: [],
 };

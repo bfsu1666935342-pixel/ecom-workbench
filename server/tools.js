@@ -165,9 +165,11 @@ function toolDefs(opts = {}) {
 }
 
 class ToolRunner {
-  constructor({ workspace, dataDir, apiKey, baseUrl, emit, mcp, noReportFiles, skillTitle }) {
+  constructor({ workspace, dataDir, apiKey, baseUrl, emit, mcp, noReportFiles, skillTitle, skills, allowedSkills }) {
     this.noReportFiles = Boolean(noReportFiles);
     this.skillTitle = String(skillTitle || '');
+    this.skills = Array.isArray(skills) ? skills : [];
+    this.allowedSkills = Array.isArray(allowedSkills) ? allowedSkills : null;
     this.workspace = workspace;
     this.dataDir = dataDir;
     this.apiKey = apiKey;
