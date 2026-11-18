@@ -68,7 +68,22 @@ function systemPrompt({ cfg, skill, search, hasMcp }) {
     '',
     '用户上传的 Excel / PDF / Word 已经作为文件内容传入对话，可以直接阅读；如果需要程序化处理，原始文件在 attachments/ 目录。',
   );
-  if (skill && skill.body) {
+  if (skill && skill.runOnly && skill.body) {
+    lines.push(
+      '',
+      '# 当前技能：' + skill.title,
+      '',
+      '## 硬约束（优先级最高，不能违反）',
+      '这个技能的所有报告都由脚本渲染，你**不得自己写 HTML、表格或任何报告文件**，也不得把数据拼成文件冒充报告。',
+      '用户要报告时，只回答：请点技能卡片上的「直接运行」→ 选对应命令 → 跑完后在工作区「技能产出」里取文件。',
+      '你可以解释每个按钮做什么、要填什么参数、数据口径是什么，但不能产出报告。',
+      '',
+      '（下面是这个技能的流程说明，仅供你理解，不要照着它手写报告。）',
+      '',
+      skill.body.trim(),
+      '',
+    );
+  } else if (skill && skill.body) {
     lines.push(
       '',
       '# 当前技能：' + skill.title,
@@ -190,6 +205,8 @@ async function runTurn(opts) {
     apiKey,
     baseUrl: cfg.apiBase,
     mcp,
+    noReportFiles: Boolean(skill && skill.runOnly),
+    skillTitle: skill ? skill.title : '',
     emit: (ev) => {
       if (ev && ev.t === 'sources') {
         for (const item of ev.items || []) {

@@ -36,6 +36,7 @@ function createApi(ctx) {
       starters: s.starters,
       fields: s.fields,
       featured: s.featured,
+      runOnly: Boolean(s.runOnly),
       commands: commandList(s),
     };
   }

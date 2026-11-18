@@ -1503,7 +1503,10 @@
       banner.classList.remove('hidden');
       $('#sbNo').textContent = skillGroupLabel(state.skill) + ' ' + skillNo(state.skill);
       $('#sbTitle').textContent = state.skill.title;
-      $('#sbDesc').textContent = state.skill.tagline || state.skill.description || '';
+      const baseDesc = state.skill.tagline || state.skill.description || '';
+      $('#sbDesc').textContent = state.skill.runOnly
+        ? baseDesc + ' · 报告请点技能卡片里的「直接运行」生成'
+        : baseDesc;
     } else {
       chip.classList.add('hidden');
       banner.classList.add('hidden');

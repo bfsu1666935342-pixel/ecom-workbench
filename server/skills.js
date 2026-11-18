@@ -43,6 +43,8 @@ function loadSkills(dirs) {
           starters: Array.isArray(meta.starters) ? meta.starters : [],
           fields: Array.isArray(meta.fields) ? meta.fields : [],
           featured: Boolean(meta.featured),
+          // runOnly：报告只能由「直接运行」跑脚本生成，禁止模型手写
+          runOnly: Boolean(meta.runOnly),
           body,
           meta,
         });

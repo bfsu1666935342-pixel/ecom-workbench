@@ -147,7 +147,9 @@ function toolDefs(opts = {}) {
 }
 
 class ToolRunner {
-  constructor({ workspace, dataDir, apiKey, baseUrl, emit, mcp }) {
+  constructor({ workspace, dataDir, apiKey, baseUrl, emit, mcp, noReportFiles, skillTitle }) {
+    this.noReportFiles = Boolean(noReportFiles);
+    this.skillTitle = String(skillTitle || '');
     this.workspace = workspace;
     this.dataDir = dataDir;
     this.apiKey = apiKey;
@@ -276,6 +278,14 @@ class ToolRunner {
   writeFile(args) {
     const rel = String(args.path || '').trim();
     if (!rel) return { ok: false, content: '缺少文件路径' };
+    if (this.noReportFiles && /\.(html?|xlsx|xls|csv)$/i.test(rel)) {
+      return {
+        ok: false,
+        content:
+          '不能手写报告文件（' + rel + '）：「' + this.skillTitle + '」的报告必须由脚本渲染。' +
+          '请让用户点技能卡片上的「直接运行」按钮生成，不要用 write_file 代替。',
+      };
+    }
     const abs = resolveSafe(this.workspace, rel);
     ensureDir(path.dirname(abs));
     const content = String(args.content == null ? '' : args.content);
@@ -352,7 +362,12 @@ function readCsv(rel){
 }
 function table(data){ console.table(data); return data.length; }
 `;
-    fs.writeFileSync(file, prelude + '\n' + code, 'utf8');
+    // 「只能用按钮运行」的技能：run_javascript 里的 write() 也不许写报告文件
+    const reportGuard = this.noReportFiles
+      ? "\nconst _origWrite = write;\nwrite = function(rel, data){\n  if (/\\.(html?|xlsx|xls|csv)$/i.test(String(rel))) {\n    throw new Error('不能手写报告文件（' + rel + '）：这个技能的报告必须由脚本生成，请让用户点技能卡片上的「直接运行」');\n  }\n  return _origWrite(rel, data);\n};\n" +
+        "const _origWriteFileSync = fs.writeFileSync;\nfs.writeFileSync = function(target){\n  if (/\\.(html?|xlsx|xls|csv)$/i.test(String(target))) {\n    throw new Error('不能手写报告文件：这个技能的报告必须由脚本生成，请让用户点技能卡片上的「直接运行」');\n  }\n  return _origWriteFileSync.apply(fs, arguments);\n};\n"
+      : '';
+    fs.writeFileSync(file, prelude + reportGuard + '\n' + code, 'utf8');
     const before = snapshot(this.workspace);
     const outFile = path.join(tmpDir, path.basename(file, '.js') + '.out');
     const errFile = path.join(tmpDir, path.basename(file, '.js') + '.err');
