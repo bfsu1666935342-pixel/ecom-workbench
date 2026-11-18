@@ -1119,6 +1119,10 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .setting-row .s-control input[type="text"], .setting-row .s-control input[type="password"], .setting-row .s-control select { width: 220px; }
 .key-wrap { position: relative; display: flex; gap: 4px; }
 .key-wrap input { padding-right: 44px; font-family: var(--mono); font-size: 11.5px; }
+/* .modal input[type=password] 的 padding 权重更高，会把上面这条右边距盖掉，
+   导致设置弹窗里密码圆点一直排到小眼睛底下。这里提高权重补回来。 */
+.modal .key-wrap input[type="text"],
+.modal .key-wrap input[type="password"] { padding-right: 44px; }
 .key-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: none; color: var(--faint); width: 28px; height: 28px; padding: 0; border-radius: var(--r-xs); display: inline-flex; align-items: center; justify-content: center; }
 .key-eye:hover { color: var(--ink); background: var(--raised); }
 .key-actions { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
