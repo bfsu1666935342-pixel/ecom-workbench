@@ -359,19 +359,113 @@
   }
 
   function startAgent(agent) {
+    newChat();
     state.agent = agent;
     state.skill = null;
-    if (state.session) {
-      state.session.skillId = null;
-      state.session.agentId = agent ? agent.id : null;
-    }
-    newChat(true);
     showView('chat');
     updateSkillUI();
     const input = $('#input');
     if (input) input.focus();
   }
 
+  // ---------------- 输入框里 @ 员工 ----------------
+
+  function atQuery() {
+    const input = $('#input');
+    if (!input) return null;
+    const upto = input.value.slice(0, input.selectionStart || 0);
+    const m = upto.match(/(?:^|\s)@([^\s@]*)$/);
+    if (!m) return null;
+    return m[1].toLowerCase();
+  }
+
+  function renderAtMenu(query) {
+    const menu = $('#atMenu');
+    if (!menu) return;
+    const list = state.agents.filter((a) => {
+      if (!query) return true;
+      const hay = (a.title + ' ' + (a.role || '') + ' ' + (a.tagline || '')).toLowerCase();
+      return hay.indexOf(query) >= 0;
+    });
+    if (!list.length) {
+      closeAtMenu();
+      return;
+    }
+    menu.innerHTML =
+      '<div class="at-title">和谁对话</div>' +
+      list
+        .map(
+          (a) =>
+            '<button class="at-item" type="button" data-at="' + esc(a.id) + '">' +
+            (a.avatar
+              ? '<img src="/api/agent/avatar?id=' + encodeURIComponent(a.id) + '" alt="">'
+              : '<span class="at-emoji">' + esc(a.icon || '') + '</span>') +
+            '<span class="at-main"><b>' + esc(a.title) + '</b><small>' + esc(a.tagline || '') + '</small></span>' +
+            '</button>'
+        )
+        .join('');
+    menu.classList.remove('hidden');
+    menu.querySelectorAll('[data-at]').forEach((btn) => {
+      btn.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        pickAgent(btn.dataset.at);
+      });
+    });
+  }
+
+  function openSkillPicker() {
+    const menu = $('#atMenu');
+    if (!menu) return;
+    const groups = [];
+    for (const skill of state.skills) {
+      if (!groups.includes(skill.group)) groups.push(skill.group);
+    }
+    let html = '<div class="at-title">用哪个技能</div>';
+    for (const g of groups) {
+      html += '<div class="at-group">' + esc(g) + '</div>';
+      for (const skill of state.skills.filter((x) => x.group === g)) {
+        html +=
+          '<button class="at-item" type="button" data-skill="' + esc(skill.id) + '">' +
+          '<span class="at-emoji">◇</span>' +
+          '<span class="at-main"><b>' + esc(skill.title) + '</b><small>' +
+          esc(skill.tagline || skill.description || '') + '</small></span></button>';
+      }
+    }
+    menu.innerHTML = html;
+    menu.classList.remove('hidden');
+    menu.querySelectorAll('[data-skill]').forEach((btn) => {
+      btn.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        const skill = state.skills.find((x) => x.id === btn.dataset.skill);
+        if (!skill) return;
+        state.skill = skill;
+        closeAtMenu();
+        updateSkillUI();
+      });
+    });
+  }
+
+  function closeAtMenu() {
+    const menu = $('#atMenu');
+    if (menu) menu.classList.add('hidden');
+  }
+
+  function pickAgent(id) {
+    const agent = state.agents.find((a) => a.id === id);
+    if (!agent) return;
+    const input = $('#input');
+    if (input) {
+      const upto = input.value.slice(0, input.selectionStart || 0);
+      const rest = input.value.slice(input.selectionStart || 0);
+      const before = upto.replace(/(^|\s)@([^\s@]*)$/, '$1');
+      input.value = before + rest;
+      input.selectionStart = input.selectionEnd = before.length;
+    }
+    state.agent = agent;
+    closeAtMenu();
+    updateSkillUI();
+    if (input) input.focus();
+  }
   function showView(view) {
     state.view = view;
     $('#chatView').classList.toggle('hidden', view !== 'chat');
@@ -764,6 +858,7 @@
     state.session = null;
     state.messages = [];
     state.skill = keepSkill ? state.skill : null;
+    state.agent = keepSkill ? state.agent : null;
     state.live = null;
     $('#messages').innerHTML = '';
     showView('chat');
@@ -822,6 +917,9 @@
     avatar.className = 'avatar ' + (msg.role === 'user' ? 'me' : 'bot');
     if (msg.role === 'user') {
       avatar.textContent = '你';
+    } else if (state.agent && state.agent.avatar) {
+      avatar.classList.add('has-img');
+      avatar.innerHTML = '<img src="/api/agent/avatar?id=' + encodeURIComponent(state.agent.id) + '" alt="">';
     } else {
       avatar.innerHTML = '<svg viewBox="0 0 32 32" fill="none"><path d="M9.5 20.5 15.2 12l3.2 4.2 2.1-2.6 3.9 6.9H9.5Z" fill="currentColor"/></svg>';
     }
@@ -853,7 +951,15 @@
 
     const head = document.createElement('div');
     head.className = 'msg-head';
-    head.innerHTML = '<b>' + esc(state.cfg ? state.cfg.brand : '跨境 AI 工作台') + '</b>' + (state.skill && live ? '<span>· ' + esc(state.skill.title) + '</span>' : '');
+    if (msg.role !== 'user' && state.agent) {
+      head.innerHTML =
+        '<b>' + esc(state.agent.title) + '</b><span>· ' + esc(state.agent.role || '') + '</span>' +
+        (state.skill ? '<span>· ' + esc(state.skill.title) + '</span>' : '');
+    } else {
+      head.innerHTML =
+        '<b>' + esc(state.cfg ? state.cfg.brand : '跨境 AI 工作台') + '</b>' +
+        (state.skill && live ? '<span>· ' + esc(state.skill.title) + '</span>' : '');
+    }
     body.append(head);
 
     if (live) {
@@ -1666,37 +1772,55 @@
   }
 
   function updateSkillUI() {
+    // 顶部不再挂 chip，上下文统一显示在输入框上方
     const agentChip = $('#agentChip');
-    if (agentChip) {
-      if (state.agent) {
-        agentChip.classList.remove('hidden');
-        agentChip.innerHTML =
-          '<span class="chip-no">员工</span><span>' + esc(state.agent.title) + '</span>';
-        agentChip.title = '点击更换员工';
-      } else {
-        agentChip.classList.add('hidden');
-      }
-    }
-    const chip = $('#skillChip');
+    if (agentChip) agentChip.classList.add('hidden');
+    const skillChip = $('#skillChip');
+    if (skillChip) skillChip.classList.add('hidden');
+
     const banner = $('#skillBanner');
-    if (state.skill) {
-      if (state.view === 'chat') chip.classList.remove('hidden');
-      else chip.classList.add('hidden');
-      chip.innerHTML = '<span class="chip-no">' + esc(skillGroupLabel(state.skill)) + ' ' + skillNo(state.skill) + '</span><span>' + esc(state.skill.title) + '</span>';
-      chip.title = '点击更换技能';
-      banner.classList.remove('hidden');
-      $('#sbNo').textContent = skillGroupLabel(state.skill) + ' ' + skillNo(state.skill);
-      $('#sbTitle').textContent = state.skill.title;
-      const baseDesc = state.skill.tagline || state.skill.description || '';
-      $('#sbDesc').textContent = state.skill.runOnly
-        ? baseDesc + ' · 报告请点技能卡片里的「直接运行」生成'
-        : baseDesc;
-    } else {
-      chip.classList.add('hidden');
-      banner.classList.add('hidden');
+    if (banner) banner.classList.add('hidden');
+
+    const bar = $('#ctxBar');
+    if (!bar) return;
+    const parts = [];
+    if (state.agent) {
+      const img = state.agent.avatar
+        ? '<img src="/api/agent/avatar?id=' + encodeURIComponent(state.agent.id) + '" alt="">'
+        : '<span class="ctx-emoji">' + esc(state.agent.icon || '') + '</span>';
+      parts.push(
+        '<span class="ctx-chip agent">' + img +
+        '<b>' + esc(state.agent.title) + '</b>' +
+        '<span class="ctx-role">' + esc(state.agent.role || '员工') + '</span>' +
+        '<button type="button" data-ctx-clear="agent" title="取消员工">×</button></span>'
+      );
     }
+    if (state.skill) {
+      parts.push(
+        '<span class="ctx-chip skill"><b>' + esc(state.skill.title) + '</b>' +
+        '<button type="button" data-ctx-clear="skill" title="取消技能">×</button></span>'
+      );
+    }
+    bar.classList.remove('hidden');
+    if (!parts.length) {
+      bar.innerHTML = '<span class="ctx-hint">空白对话 · 输入 <kbd>@</kbd> 选员工，或到技能库选技能</span>';
+      return;
+    }
+    bar.innerHTML = parts.join('');
+    bar.querySelectorAll('[data-ctx-clear]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.ctxClear === 'agent') clearAgent();
+        else clearSkill();
+      });
+    });
   }
 
+  function clearAgent() {
+    state.agent = null;
+    if (state.session) state.session.agentId = null;
+    closeAtMenu();
+    updateSkillUI();
+  }
   function clearSkill() {
     state.skill = null;
     if (state.session) state.session.skillId = null;
@@ -1924,6 +2048,33 @@
   /* ================= 事件 ================= */
 
   function bindEvents() {
+    // @ 选员工
+    const atInput = $('#input');
+    atInput.addEventListener('input', () => {
+      const q = atQuery();
+      if (q === null) closeAtMenu();
+      else renderAtMenu(q);
+    });
+    atInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAtMenu();
+    });
+    document.addEventListener('click', (e) => {
+      const menu = $('#atMenu');
+      if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target)) closeAtMenu();
+    });
+    const skillPickBtn = $('#skillPickBtn');
+    if (skillPickBtn) skillPickBtn.addEventListener('click', openSkillPicker);
+    const agentBtn = $('#agentBtn');
+    if (agentBtn) {
+      agentBtn.addEventListener('click', () => {
+        const el = $('#input');
+        el.focus();
+        const pos = el.selectionStart || el.value.length;
+        el.value = el.value.slice(0, pos) + '@' + el.value.slice(pos);
+        el.selectionStart = el.selectionEnd = pos + 1;
+        renderAtMenu('');
+      });
+    }
     $('#newChat').addEventListener('click', () => newChat());
     $$('.nav-item').forEach((btn) => {
       btn.addEventListener('click', () => showView(btn.dataset.view));

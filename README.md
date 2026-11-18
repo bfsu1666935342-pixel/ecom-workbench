@@ -1,4 +1,4 @@
-# 跨境 AI 工作台 · Ecom Workbench v1.3.2
+# 跨境 AI 工作台 · Ecom Workbench v1.3.3
 
 一个**免安装**的亚马逊运营 AI 工作台。解压后双击 `Start.bat`（或 `启动.bat`），浏览器自动打开；填入自己的 DeepSeek API Key 就能用。
 
@@ -191,6 +191,6 @@ EcomWorkbench/
 
 ## 版本
 
-v1.3.2 · 2026-11
+v1.3.3 · 2026-11
 
 内置 Node.js v24.18.0（MIT License）。
