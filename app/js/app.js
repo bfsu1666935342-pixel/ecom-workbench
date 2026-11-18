@@ -1187,7 +1187,7 @@
           done('没写进去：' + (data.error || '未知错误') + '。可以让助手重新提交一次。', false);
           return;
         }
-        done('已写入。点技能里的「④ 生成本周周报」重新出报告即生效。', true);
+        done('已写入。点技能里的「① 生成本周周报」重新出报告即生效。', true);
       } catch (err) {
         done('没写进去：' + err.message, false);
       }
@@ -1950,7 +1950,7 @@
       '<div class="modal-head"><div class="skill-hero"><div class="skill-no">⚙</div>' +
       '<div><div class="skill-group-tag">' + esc(state.skill.group || '技能') + '</div>' +
       '<h2>' + esc(state.skill.title) + ' · 配置</h2>' +
-      '<div class="tag">改完保存，再点「④ 生成本周周报」才会生效</div></div></div>' +
+      '<div class="tag">改完保存，再点「① 生成本周周报」才会生效</div></div></div>' +
       '<button class="modal-close" data-close type="button">×</button></div>' +
       (state.products.length
         ? '<table class="cfg-table"><thead><tr><th>SPU</th><th>站点</th><th>父体 ASIN</th><th>竞品</th><th>月目标</th><th>利润率</th><th></th></tr></thead><tbody>' +
