@@ -169,7 +169,10 @@ function listen(port, attempts = 0) {
     };
     server.once('error', onError);
     server.once('listening', onListening);
-    server.listen(port, process.env.ECOM_HOST || '127.0.0.1');
+    if (attempts > 0) {
+    console.log('  端口 ' + (port - 1) + ' 被占用（可能是上次没退干净的进程），改用 ' + port);
+  }
+  server.listen(port, process.env.ECOM_HOST || '127.0.0.1');
   });
 }
 

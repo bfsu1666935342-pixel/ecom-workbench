@@ -1759,11 +1759,29 @@
     const limit = Math.round((cmd.timeoutMs || 180000) / 1000);
     btn.disabled = true;
     btn.textContent = '运行中…';
-    box.innerHTML = '<pre class="run-out">正在运行，最长 ' + limit + ' 秒…</pre>';
+    box.innerHTML =
+      '<div class="run-live"><span class="spinner"></span><span data-elapsed>0:00</span>' +
+      '<span class="run-live-note">正在运行，最长 ' + limit + ' 秒</span></div>' +
+      '<pre class="run-out" data-preview>等待输出…</pre>';
+
+    // 秒表：让人知道它没死
+    const startedAt = Date.now();
+    const elapsedEl = box.querySelector('[data-elapsed]');
+    const ticker = setInterval(() => {
+      if (!elapsedEl) return;
+      const total = Math.floor((Date.now() - startedAt) / 1000);
+      elapsedEl.textContent = Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
+    }, 1000);
+
+    // 请求最多等「命令上限 + 90 秒」，超时就当服务没了，别让按钮永远转
+    const controller = new AbortController();
+    const hardTimer = setTimeout(() => controller.abort(), (limit + 90) * 1000);
+
     try {
       const resp = await fetch('/api/skill/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({ skillId: skill.id, index: cmd.index, params }),
       });
       const data = await resp.json();
@@ -1822,8 +1840,18 @@
       }
       box.innerHTML = html;
     } catch (err) {
-      box.innerHTML = '<pre class="run-out">' + esc('请求失败：' + (err && err.message ? err.message : String(err))) + '</pre>';
+      const aborted = err && (err.name === 'AbortError' || /aborted/i.test(String(err.message)));
+      box.innerHTML =
+        '<pre class="run-out">' +
+        esc(
+          aborted
+            ? '等太久没响应，已经放弃。多半是工作台服务被关掉或卡住了——刷新页面，重新点一次「运行」。'
+            : '请求失败：' + (err && err.message ? err.message : String(err))
+        ) +
+        '</pre>';
     } finally {
+      clearInterval(ticker);
+      clearTimeout(hardTimer);
       btn.disabled = false;
       btn.textContent = '重新运行';
     }

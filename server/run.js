@@ -189,7 +189,7 @@ function copyToWorkspace(list, workspace, skillId) {
   return saved;
 }
 
-function runCommand({ skill, index, params, workspace, dataDir }) {
+function runCommand({ skill, index, params, workspace, dataDir, onChild }) {
   const list = commandList(skill);
   const cmd = list.find((c) => c.index === Number(index)) || list[Number(index)];
   if (!cmd) return Promise.reject(Object.assign(new Error('这个技能没有配置可运行命令'), { status: 400 }));
@@ -217,9 +217,17 @@ function runCommand({ skill, index, params, workspace, dataDir }) {
     let stderr = '';
     let settled = false;
     let child;
+    let injected = {};
     try {
-  const injected = envFromMcp(dataDir);
-    child = spawnFor(exe, args, dir, injected);
+      injected = envFromMcp(dataDir);
+      child = spawnFor(exe, args, dir, injected);
+      if (typeof onChild === 'function') {
+        try {
+          onChild(child);
+        } catch {
+          /* 回调出错不影响运行 */
+        }
+      }
     } catch (err) {
       resolve({ ok: false, error: '启动失败：' + (err && err.message), output: '', files: [], ms: 0 });
       return;

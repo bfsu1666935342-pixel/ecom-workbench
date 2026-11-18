@@ -2,10 +2,10 @@
   "brand": "跨境 AI 工作台",
   "brandEn": "Ecom Workbench",
   "tagline": "亚马逊运营技能：选品、Listing、关键词、广告、利润与供应链",
-  "port": 7861,
+  "port": 7871,
   "apiBase": "https://api.deepseek.com",
   "model": "deepseek-flash",
   "maxSteps": 24,
   "extraSkillsDirs": ["../ecom-skills"],
-  "version": "1.6.2"
+  "version": "1.6.3"
 }

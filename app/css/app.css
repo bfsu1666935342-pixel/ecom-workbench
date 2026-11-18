@@ -1412,3 +1412,9 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .run-rest summary { font-size: 11px; color: var(--faint); cursor: pointer; padding: 4px 0; }
 .run-rest summary:hover { color: var(--muted); }
 .run-rest .run-files { margin-top: 6px; }
+
+/* ---- 运行中的秒表 ---- */
+.run-live { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); padding: 2px 0 6px; }
+.run-live .spinner { width: 12px; height: 12px; border-width: 2px; }
+.run-live [data-elapsed] { font-family: var(--mono); font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.run-live-note { font-size: 11px; color: var(--faint); }

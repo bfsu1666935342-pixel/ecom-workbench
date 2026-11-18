@@ -321,13 +321,38 @@ function createApi(ctx) {
       }
       busy.add('run:' + skill.id);
       try {
+        // 浏览器关掉或刷新时把子进程一起收掉，避免留下孤儿占着端口或锁
+        let child = null;
+        let gone = false;
+        const killChild = () => {
+          if (!child) return;
+          try {
+            require('child_process').spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+              windowsHide: true,
+              stdio: 'ignore',
+            });
+          } catch {
+            /* 杀不掉就算了 */
+          }
+        };
+        const onClose = () => {
+          gone = true;
+          killChild();
+        };
+        req.on('close', onClose);
+
         const result = await runCommand({
           skill,
           index: body.index,
           params: body.params || {},
           workspace: store.workspace,
           dataDir: store.dataDir,
+          onChild: (c) => {
+            child = c;
+            if (gone) killChild();
+          },
         });
+        req.removeListener('close', onClose);
         sendJson(res, 200, Object.assign({ ok: false }, result));
       } catch (err) {
         sendJson(res, 200, { ok: false, error: friendlyError(err) });

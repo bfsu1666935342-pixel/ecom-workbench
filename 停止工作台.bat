@@ -12,6 +12,12 @@ set "FOUND="
 for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":%PORT%" ^| findstr /i "LISTENING"') do (
   set "FOUND=1"
   echo   结束进程 %%P
+  taskkill /pid %%P /f /t >nul 2>&1
+)
+
+rem 清掉技能跑剩的 python（不然端口可能被幽灵占用）
+for /f "tokens=2" %%P in ('wmic process where "name='python.exe' and commandline like '%%wreport%%'" get processid /format:list ^| findstr /r "[0-9]"') do (
+  echo   清理残留 python %%P
   taskkill /pid %%P /f >nul 2>&1
 )
 
