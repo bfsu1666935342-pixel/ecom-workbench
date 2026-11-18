@@ -36,10 +36,21 @@ function loadAgents(dirs) {
       } catch {
         /* AGENT.md 可选 */
       }
+// 头像：agents/<id>/avatar.svg|png|jpg|webp，有就用图片，没有才退回 emoji
+      let avatar = '';
+      for (const ext of ['svg', 'png', 'jpg', 'jpeg', 'webp']) {
+        const file = path.join(base, 'avatar.' + ext);
+        if (fs.existsSync(file)) {
+          avatar = 'avatar.' + ext;
+          break;
+        }
+      }
+
       byId.set(meta.id, {
         id: String(meta.id),
         dir: entry.name,
         source: dir,
+        avatar,
         role: String(meta.role || ''),
         title: String(meta.title || meta.id),
         icon: String(meta.icon || '🧑‍💼'),

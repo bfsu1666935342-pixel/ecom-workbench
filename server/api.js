@@ -32,6 +32,7 @@ function createApi(ctx) {
     return {
       id: a.id,
       role: a.role,
+      avatar: a.avatar || '',
       title: a.title,
       icon: a.icon,
       order: a.order,
@@ -169,6 +170,27 @@ function createApi(ctx) {
       return true;
     }
 
+    // 员工头像：直接读 agents/<id>/avatar.*，只允许该员工目录内的文件
+    if (pathname === '/api/agent/avatar' && req.method === 'GET') {
+      const agent = agentById(url.searchParams.get('id') || '');
+      if (!agent || !agent.avatar) {
+        sendJson(res, 404, { error: '没有头像' });
+        return true;
+      }
+      const dir = path.join(agent.source, 'agents', agent.dir);
+      const abs = path.join(dir, agent.avatar);
+      if (!inside(dir, abs) || !fs.existsSync(abs)) {
+        sendJson(res, 404, { error: '没有头像' });
+        return true;
+      }
+      res.writeHead(200, {
+        'Content-Type': mimeFor(abs),
+        'Cache-Control': 'no-cache',
+        'X-Content-Type-Options': 'nosniff',
+      });
+      fs.createReadStream(abs).pipe(res);
+      return true;
+    }
     // 给员工增删技能（写回 agent.json，热重载会自动生效）
     if (pathname === '/api/agent/skills' && req.method === 'POST') {
       try {

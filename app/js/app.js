@@ -237,6 +237,16 @@
     return (agent.skills || []).map((id) => state.skills.find((s) => s.id === id)).filter(Boolean);
   }
 
+  function agentAvatarInner(agent) {
+    if (agent.avatar) {
+      return '<img class="agent-avatar" alt="" src="/api/agent/avatar?id=' + encodeURIComponent(agent.id) + '">';
+    }
+    return '<span class="agent-emoji">' + esc(agent.icon || '🧑‍💼') + '</span>';
+  }
+
+  function agentAvatar(agent, cls) {
+    return '<div class="' + cls + '">' + agentAvatarInner(agent) + '</div>';
+  }
   function renderAgentsPage() {
     const box = $('#agentGrid');
     if (!box) return;
@@ -251,7 +261,7 @@
       el.className = 'agent-card';
       el.type = 'button';
       el.innerHTML =
-        '<div class="agent-icon">' + esc(agent.icon || '🧑‍💼') + '</div>' +
+        agentAvatar(agent, 'agent-icon') +
         '<div class="agent-body"><div class="agent-role">' + esc(agent.role || '') + '</div>' +
         '<div class="agent-title">' + esc(agent.title) + '</div>' +
         '<div class="agent-tagline">' + esc(agent.tagline || '') + '</div>' +
@@ -288,7 +298,7 @@
       const owned = agentSkills(agent);
       const left = state.skills.filter((s) => !(agent.skills || []).includes(s.id));
       return (
-        '<div class="modal-head"><div class="skill-hero"><div class="skill-no">' + esc(agent.icon || '🧑‍💼') + '</div>' +
+        '<div class="modal-head"><div class="skill-hero"><div class="skill-no">' + agentAvatarInner(agent) + '</div>' +
         '<div><div class="skill-group-tag">' + esc(agent.role ? agent.role + ' · 员工' : '员工') + '</div><h2>' + esc(agent.title) + '</h2>' +
         '<div class="tag">' + esc(agent.tagline || '') + '</div></div></div>' +
         '<button class="modal-close" data-close type="button">×</button></div>' +
