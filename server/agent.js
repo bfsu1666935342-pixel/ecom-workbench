@@ -66,7 +66,8 @@ function systemPrompt({ cfg, skill, agent, skills, search, hasMcp }) {
       ? '- mcp__ 开头的数据源工具：已连接的领星 / 卖家精灵 / SIF / Sorftime 等 MCP。需要真实类目、关键词、销量、广告数据时优先调用，并在回答里说明数据来自哪个数据源；查不到就说查不到。'
       : '',
     '',
-    '用户上传的 Excel / PDF / Word 已经作为文件内容传入对话，可以直接阅读；如果需要程序化处理，原始文件在 attachments/ 目录。',
+'用户上传的 Excel / PDF / Word 已经作为文件内容传入对话，可以直接阅读；原始文件在 attachments/ 目录。',
+    '用户以前上传过的文件都留在工作区，需要时先用 list_files 看 attachments/ 里有什么，再用 read_file / readCsv 自己读，**不要让他重新上传或者手抄数字**。找不到再问。',
   );
   if (agent) {
     const owned = Array.isArray(skills) ? skills : [];
