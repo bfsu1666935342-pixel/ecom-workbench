@@ -221,6 +221,14 @@ async function runTurn(opts) {
 
   const newApi = [userApi];
   const newUi = [userUi];
+  // 本次会话允许"提案改配置"的技能：声明了 configFiles 的，且属于当前员工或当前技能
+  const configSkills = (opts.skills || []).filter((s) => {
+  if (!s.meta || !Array.isArray(s.meta.configFiles) || !s.meta.configFiles.length) return false;
+  if (agent) return (agent.skills || []).includes(s.id);
+  if (skill) return skill.id === s.id;
+  return true;
+  });
+
   const mcpDefs = mcp ? mcp.defs() : [];
   const messages = [
     {
@@ -238,14 +246,6 @@ async function runTurn(opts) {
     ...session.api,
     userApi,
   ];
-
-// 本次会话允许"提案改配置"的技能：声明了 configFiles 的，且属于当前员工或当前技能
-  const configSkills = (opts.skills || []).filter((s) => {
-    if (!s.meta || !Array.isArray(s.meta.configFiles) || !s.meta.configFiles.length) return false;
-    if (agent) return (agent.skills || []).includes(s.id);
-    if (skill) return skill.id === s.id;
-    return true;
-  });
 
   const runner = new ToolRunner({
     workspace: store.workspace,
