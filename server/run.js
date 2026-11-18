@@ -109,7 +109,8 @@ function envFromMcp(dataDir) {
   };
 
   for (const server of servers) {
-    if (!server || server.enabled === false) continue;
+    // 不看 enabled：用户把 Key 填进去就是有意图用，界面的开关只影响 AI 侧
+    if (!server) continue;
     const url = String(server.url || '').trim();
     const host = url.toLowerCase();
     const token = String(server.token || '').trim() || fromHeaders(server.headers);
@@ -217,7 +218,8 @@ function runCommand({ skill, index, params, workspace, dataDir }) {
     let settled = false;
     let child;
     try {
-      child = spawnFor(exe, args, dir, envFromMcp(dataDir));
+  const injected = envFromMcp(dataDir);
+    child = spawnFor(exe, args, dir, injected);
     } catch (err) {
       resolve({ ok: false, error: '启动失败：' + (err && err.message), output: '', files: [], ms: 0 });
       return;
@@ -260,6 +262,7 @@ function runCommand({ skill, index, params, workspace, dataDir }) {
         code,
         output: (stdout + stderr).slice(-MAX_OUTPUT),
         files: saved,
+        injected: Object.keys(injected || {}).sort(),
         ms: Date.now() - startedAt,
       });
     });

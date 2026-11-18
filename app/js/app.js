@@ -117,7 +117,7 @@
     if (!state.cfg) return;
     document.title = state.cfg.brand + ' · ' + state.cfg.brandEn;
     $('#brandName').textContent = state.cfg.brand;
-    $('#brandSub').textContent = state.cfg.brandEn;
+    $('#brandSub').textContent = state.cfg.brandEn + (state.cfg.version ? ' · v' + state.cfg.version : '');
   }
 
   function buildSkillOrder() {
@@ -1778,6 +1778,14 @@
           '<pre class="run-out">' + esc((data.error ? data.error + '\n\n' : '') + (data.output || '')) + '</pre>' +
           '<div class="run-hint" style="margin-top:6px;color:var(--danger)">❌ 没有成功' +
           (data.code !== undefined && data.code !== null ? '（退出码 ' + data.code + '）' : '') + '</div>';
+      }
+      if (Array.isArray(data.injected)) {
+        html +=
+          '<div class="run-hint" style="margin-top:6px">数据源凭据：' +
+          (data.injected.length
+            ? esc(data.injected.join('、'))
+            : '没有注入（数据源里没有填 Key，或那条数据源被删了）') +
+          '</div>';
       }
       if (Array.isArray(data.files) && data.files.length) {
         const files = data.files.map(String);
