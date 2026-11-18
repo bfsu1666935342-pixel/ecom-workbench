@@ -620,19 +620,19 @@
     };
     const html =
       '<div class="modal-head"><div><h2>' + (isNew ? '添加数据源' : '配置 ' + esc(s.name)) + '</h2>' +
-      '<p>填写服务商提供的 MCP 地址和 Key。保存后点「保存并测试」读取工具列表。</p></div>' +
+      '<p>填写服务商提供的 MCP 地址和 Key。保存后点「保存并测试」读取工具列表。<br><span class="mcp-form-help">每个数据源的地址和 Key 各不相同；浏览器有时会自动填入上一个数据源的内容，填之前核对一下。</span></p></div>' +
       '<div class="modal-head-actions">' +
       (s.preset === 'lingxing' ? '<button class="link-btn" id="mcpHelp" type="button">帮助</button>' : '') +
       '<button class="modal-close" data-close type="button">×</button></div></div>' +
-      '<div class="field"><label>名称</label><input type="text" id="mcpName" value="' + esc(s.name) + '" placeholder="例如：领星 ERP"></div>' +
-      '<div class="field"><label>MCP 地址</label><input type="text" id="mcpUrl" value="' + esc(s.url || '') + '" placeholder="https://.../mcp" spellcheck="false"></div>' +
+      '<div class="field"><label>名称</label><input type="text" id="mcpName" value="' + esc(s.name) + '" placeholder="例如：领星 ERP" autocomplete="off" data-lpignore="true"></div>' +
+      '<div class="field"><label>MCP 地址</label><input type="text" id="mcpUrl" value="' + esc(s.url || '') + '" placeholder="https://.../mcp" spellcheck="false" autocomplete="off" autocorrect="off" data-lpignore="true" data-1p-ignore></div>' +
       '<div class="form-grid">' +
       '<div class="field"><label>认证方式</label><select id="mcpAuth">' +
       '<option value="bearer"' + (s.authMode === 'bearer' ? ' selected' : '') + '>Bearer Token</option>' +
       '<option value="query"' + (s.authMode === 'query' ? ' selected' : '') + '>URL 参数 key</option>' +
       '<option value="headers"' + (s.authMode === 'headers' ? ' selected' : '') + '>自定义 Headers</option>' +
       '</select></div>' +
-      '<div class="field"><label id="mcpTokenLabel">访问令牌 / Key</label><input type="password" id="mcpToken" value="' + esc(s.token || '') + '" placeholder="服务商控制台里的 Key" autocomplete="off"></div>' +
+      '<div class="field"><label id="mcpTokenLabel">访问令牌 / Key</label><input type="password" id="mcpToken" value="' + esc(s.token || '') + '" placeholder="服务商控制台里的 Key" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-form-type="other"></div>' +
       '</div>' +
       '<div class="field" id="mcpKeyParamField"><label>URL 参数名</label><input type="text" id="mcpKeyParam" value="' + esc(s.keyParam || 'key') + '" placeholder="key"><div class="mcp-form-help">Sorftime 默认用 key 放在 URL 参数里；其他服务商以文档为准。</div></div>' +
       '<div class="field"><label>附加 Headers（JSON，可选）</label><textarea id="mcpHeaders" rows="3" spellcheck="false">' + esc(JSON.stringify(s.headers || {}, null, 2)) + '</textarea><div class="mcp-form-help">例如 {"X-API-Key":"..."}。不要在这里重复写 Authorization，除非服务商要求。</div></div>' +
@@ -647,6 +647,16 @@
 
     const close = showModal(html, { wide: true });
     const modal = close.modal;
+
+    // 浏览器（Chrome 密码管理器 / 表单历史）会按"网站"自动填充，不区分是哪个数据源，
+    // 同一个 127.0.0.1:7861 下就会把 SIF 的 Key 填到卖家精灵的表单里。
+    // 这里在挂载后把我们自己的值再写一遍，覆盖掉自动填充。
+    setTimeout(() => {
+      const urlEl = modal.querySelector('#mcpUrl');
+      const tokenEl = modal.querySelector('#mcpToken');
+      if (urlEl) urlEl.value = s.url || '';
+      if (tokenEl) tokenEl.value = s.token || '';
+    }, 0);
     const helpBtn = modal.querySelector('#mcpHelp');
     if (helpBtn) helpBtn.addEventListener('click', () => openLingxingHelp(true));
     const keyField = modal.querySelector('#mcpKeyParamField');
