@@ -94,11 +94,25 @@ function envFromMcp(dataDir) {
     return '';
   };
 
+  const fromHeaders = (headers) => {
+    if (!headers || typeof headers !== 'object') return '';
+    for (const key of Object.keys(headers)) {
+      const lower = key.toLowerCase();
+      if (lower === 'authorization') {
+        return String(headers[key] || '').replace(/^Bearer\s+/i, '').trim();
+      }
+      if (lower === 'x-api-key' || lower === 'x-auth-token' || lower === 'api-key') {
+        return String(headers[key] || '').trim();
+      }
+    }
+    return '';
+  };
+
   for (const server of servers) {
     if (!server || server.enabled === false) continue;
     const url = String(server.url || '').trim();
     const host = url.toLowerCase();
-    const token = String(server.token || '').trim();
+    const token = String(server.token || '').trim() || fromHeaders(server.headers);
     const inline = secretOf(url);
     if (host.includes('lingxing')) {
       if (url) out.LINGXING_MCP_URL = url;
