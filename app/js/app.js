@@ -1600,7 +1600,7 @@
 
     const cmds = Array.isArray(skill.commands) ? skill.commands : [];
     const cmdHtml = cmds.length
-      ? '<h3>直接运行 <button class="btn small ghost" type="button" data-openfolder style="margin-left:8px">打开配置文件夹</button></h3><div class="run-list">' +
+      ? '<h3>直接运行 ' + (Array.isArray(skill.configFiles) && skill.configFiles.length ? '<button class="btn small" type="button" data-productcfg style="margin-left:8px">配置产品</button>' : '') + '<button class="btn small ghost" type="button" data-openfolder style="margin-left:8px">打开配置文件夹</button></h3><div class="run-list">' +
         cmds
           .map((c, i) => {
             const need = Array.isArray(c.params) && c.params.length > 0;
@@ -1628,6 +1628,7 @@
 
     const close = showModal(html, { wide: true });
     const modal = close.modal;
+    modal.querySelector('[data-productcfg]')?.addEventListener('click', () => openProductConfig(skill));
     modal.querySelector('[data-openfolder]')?.addEventListener('click', async (e) => {
       const btn = e.currentTarget;
       btn.disabled = true;
@@ -1828,6 +1829,283 @@
   }
 
   /* ================= 弹层 ================= */
+
+  // ---------------- 技能配置面板（周报：产品 / 竞品 / 目标） ----------------
+
+  const CFG_PRODUCTS = 'config/products.json';
+  const CFG_TARGETS = 'config/targets.json';
+
+  function pctToNum(v) {
+    const n = Number(String(v).replace('%', '').trim());
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  async function openProductConfig(skill) {
+    let data;
+    try {
+      const resp = await fetch('/api/skill/config?id=' + encodeURIComponent(skill.id));
+      data = await resp.json();
+    } catch (err) {
+      alert('读不到配置：' + err.message);
+      return;
+    }
+    if (!data.ok) {
+      alert('读不到配置：' + (data.error || '未知错误'));
+      return;
+    }
+    const productsDoc = data.files[CFG_PRODUCTS] || {};
+    const targetsDoc = data.files[CFG_TARGETS] || {};
+    const products = (productsDoc.products || []).map((p) => {
+      const bare = String(p.spu || '').replace(/^LS-/, '');
+      return { ...p, target: targetsDoc[p.spu] || targetsDoc[bare] || {} };
+    });
+    const state = { skill, products, mtimeMs: data.mtimeMs, closer: null, editing: -1 };
+    renderProductConfig(state);
+  }
+
+  function cfgModal(state, html) {
+    if (state.closer) state.closer();
+    state.closer = showModal(html, { wide: true });
+    return state.closer.modal;
+  }
+
+  function money(v) {
+    const n = Number(v) || 0;
+    return n ? n.toLocaleString('en-US') : '—';
+  }
+
+  function renderProductConfig(state) {
+    const rows = state.products
+      .map((p, i) => {
+        const parents = (p.parents || []).map((x) => x.asin).join(' / ') || '—';
+        const comp = (p.competitor && p.competitor.asin) || '—';
+        const t = p.target || {};
+        const margin = t.target_margin ? Math.round(Number(t.target_margin) * 100) + '%' : '—';
+        return (
+          '<tr class="cfg-row" data-row="' + i + '">' +
+          '<td><b>' + esc(p.spu) + '</b>' + (p.enabled === false ? '<span class="cfg-off">停用</span>' : '') + '</td>' +
+          '<td>' + esc(p.site || 'US') + '</td>' +
+          '<td class="cfg-mono">' + esc(parents) + '</td>' +
+          '<td class="cfg-mono">' + esc(comp) + '</td>' +
+          '<td class="cfg-num">' + money(t.default_monthly) + '</td>' +
+          '<td class="cfg-num">' + esc(margin) + '</td>' +
+          '<td class="cfg-go">编辑 ›</td>' +
+          '</tr>'
+        );
+      })
+      .join('');
+
+    const html =
+      '<div class="modal-head"><div class="skill-hero"><div class="skill-no">⚙</div>' +
+      '<div><div class="skill-group-tag">' + esc(state.skill.group || '技能') + '</div>' +
+      '<h2>' + esc(state.skill.title) + ' · 配置</h2>' +
+      '<div class="tag">改完保存，再点「④ 生成本周周报」才会生效</div></div></div>' +
+      '<button class="modal-close" data-close type="button">×</button></div>' +
+      (state.products.length
+        ? '<table class="cfg-table"><thead><tr><th>SPU</th><th>站点</th><th>父体 ASIN</th><th>竞品</th><th>月目标</th><th>利润率</th><th></th></tr></thead><tbody>' +
+          rows +
+          '</tbody></table>'
+        : '<p class="run-hint">还没有登记任何 SPU。</p>') +
+      '<div class="modal-actions"><button class="btn ghost" data-close type="button">关闭</button>' +
+      '<button class="btn" type="button" data-add>+ 新增 SPU</button></div>';
+
+    const modal = cfgModal(state, html);
+    modal.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => state.closer()));
+    modal.querySelector('[data-add]').addEventListener('click', () => {
+      state.editing = -1;
+      renderProductEditor(state, {
+        spu: '',
+        site: 'US',
+        parents: [{ asin: '' }],
+        competitor: { asin: '', url: '' },
+        price: 0,
+        rating: 0,
+        enabled: true,
+        target: {},
+      }, true);
+    });
+    modal.querySelectorAll('[data-row]').forEach((tr) => {
+      tr.addEventListener('click', () => {
+        const index = Number(tr.dataset.row);
+        state.editing = index;
+        renderProductEditor(state, JSON.parse(JSON.stringify(state.products[index])), false);
+      });
+    });
+  }
+
+  function renderProductEditor(state, draft, isNew) {
+    draft.parents = draft.parents && draft.parents.length ? draft.parents : [{ asin: '' }];
+    draft.competitor = draft.competitor || { asin: '', url: '' };
+    draft.target = draft.target || {};
+    const cost = draft.target.cost || {};
+
+    const parentRows = draft.parents
+      .map(
+        (p, i) =>
+          '<div class="cfg-parent-row"><input type="text" data-parent="' + i + '" value="' + esc(p.asin || '') + '" placeholder="B0XXXXXXXX" spellcheck="false">' +
+          (draft.parents.length > 1 ? '<button type="button" class="btn small ghost" data-rmparent="' + i + '">移除</button>' : '') +
+          '</div>'
+      )
+      .join('');
+
+    const html =
+      '<div class="modal-head"><div class="skill-hero"><div class="skill-no">' + (isNew ? '+' : '✎') + '</div>' +
+      '<div><div class="skill-group-tag">' + (isNew ? '新增 SPU' : '编辑 SPU') + '</div>' +
+      '<h2>' + esc(draft.spu || '新 SPU') + '</h2>' +
+      '<div class="tag">父体 ASIN 决定关键词按谁抓；竞品配一个就行</div></div></div>' +
+      '<button class="modal-close" data-close type="button">×</button></div>' +
+      '<div class="cfg-form">' +
+      '<div class="cfg-grid">' +
+      '<label>SPU 编码<input type="text" id="cfSpu" value="' + esc(draft.spu || '') + '" placeholder="LS-66D38" spellcheck="false"' + (isNew ? '' : ' readonly') + '></label>' +
+      '<label>站点<input type="text" id="cfSite" value="' + esc(draft.site || 'US') + '" spellcheck="false"></label>' +
+      '<label>售价（USD）<input type="number" step="0.01" id="cfPrice" value="' + (Number(draft.price) || '') + '"></label>' +
+      '<label>评分<input type="number" step="0.1" min="0" max="5" id="cfRating" value="' + (Number(draft.rating) || '') + '"></label>' +
+      '</div>' +
+      '<h3>父体 ASIN（一个 SPU 可以挂多个）</h3>' +
+      '<div class="cfg-parents" id="cfParents">' + parentRows + '</div>' +
+      '<button type="button" class="btn small ghost" id="cfAddParent">+ 加一个父体</button>' +
+      '<h3>对标竞品（一个 ASIN）</h3>' +
+      '<div class="cfg-grid">' +
+      '<label>竞品 ASIN<input type="text" id="cfCompAsin" value="' + esc(draft.competitor.asin || '') + '" placeholder="B0XXXXXXXX" spellcheck="false"></label>' +
+      '<label>竞品链接<input type="text" id="cfCompUrl" value="' + esc(draft.competitor.url || '') + '" placeholder="https://www.amazon.com/dp/..." spellcheck="false"></label>' +
+      '</div>' +
+      '<h3>目标与成本</h3>' +
+      '<div class="cfg-grid">' +
+      '<label>月销售目标（USD）<input type="number" step="1" id="cfMonthly" value="' + (Number(draft.target.default_monthly) || '') + '"></label>' +
+      '<label>目标利润率（%）<input type="number" step="0.1" id="cfMargin" value="' + (draft.target.target_margin ? Math.round(Number(draft.target.target_margin) * 1000) / 10 : '') + '"></label>' +
+      '<label>采购成本<input type="number" step="0.01" id="cfUnitCost" value="' + (Number(cost.unit_cost) || '') + '"></label>' +
+      '<label>头程<input type="number" step="0.01" id="cfFirstLeg" value="' + (Number(cost.first_leg) || '') + '"></label>' +
+      '<label>FBA 配送费<input type="number" step="0.01" id="cfFba" value="' + (Number(cost.fba_fee) || '') + '"></label>' +
+      '<label>佣金率（%）<input type="number" step="0.1" id="cfReferral" value="' + (cost.referral_rate !== undefined ? Math.round(Number(cost.referral_rate) * 1000) / 10 : '') + '"></label>' +
+      '</div>' +
+      '<label class="cfg-check"><input type="checkbox" id="cfEnabled"' + (draft.enabled === false ? '' : ' checked') + '> 参与周报（取消勾选＝停用，不删配置）</label>' +
+      '</div>' +
+      '<div class="modal-actions">' +
+      '<button class="btn ghost" type="button" data-back>返回列表</button>' +
+      (isNew ? '' : '<button class="btn danger" type="button" data-del>删除</button>') +
+      '<button class="btn primary" type="button" data-save>保存</button></div>';
+
+    const modal = cfgModal(state, html);
+    const collect = () => {
+      const parents = [];
+      modal.querySelectorAll('[data-parent]').forEach((input) => {
+        const v = String(input.value || '').trim().toUpperCase();
+        if (v) parents.push({ asin: v, label: '' });
+      });
+      const target = {
+        ...draft.target,
+        default_monthly: Number(modal.querySelector('#cfMonthly').value) || 0,
+        target_margin: pctToNum(modal.querySelector('#cfMargin').value) / 100,
+        cost: {
+          ...(draft.target.cost || {}),
+          unit_cost: Number(modal.querySelector('#cfUnitCost').value) || 0,
+          first_leg: Number(modal.querySelector('#cfFirstLeg').value) || 0,
+          fba_fee: Number(modal.querySelector('#cfFba').value) || 0,
+          referral_rate: pctToNum(modal.querySelector('#cfReferral').value) / 100,
+        },
+      };
+      const monthly = target.default_monthly;
+      if (monthly) {
+        const month = new Date().toISOString().slice(0, 7);
+        target.monthly = { ...(draft.target.monthly || {}), [month]: monthly };
+      }
+      return {
+        id: String(modal.querySelector('#cfSpu').value || '').trim(),
+        spu: String(modal.querySelector('#cfSpu').value || '').trim(),
+        site: String(modal.querySelector('#cfSite').value || 'US').trim().toUpperCase(),
+        parents,
+        competitor: {
+          asin: String(modal.querySelector('#cfCompAsin').value || '').trim().toUpperCase(),
+          url: String(modal.querySelector('#cfCompUrl').value || '').trim(),
+          note: (draft.competitor && draft.competitor.note) || '',
+        },
+        price: Number(modal.querySelector('#cfPrice').value) || 0,
+        rating: Number(modal.querySelector('#cfRating').value) || 0,
+        enabled: modal.querySelector('#cfEnabled').checked,
+        target,
+      };
+    };
+
+    modal.querySelector('#cfAddParent').addEventListener('click', () => {
+      const next = collect();
+      state.draft = next;
+      next.parents.push({ asin: '' });
+      renderProductEditor(state, next, isNew);
+    });
+    modal.querySelectorAll('[data-rmparent]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const next = collect();
+        next.parents.splice(Number(btn.dataset.rmparent), 1);
+        renderProductEditor(state, next, isNew);
+      });
+    });
+    modal.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => state.closer()));
+    modal.querySelector('[data-back]').addEventListener('click', () => renderProductConfig(state));
+    modal.querySelector('[data-save]').addEventListener('click', async () => {
+      const item = collect();
+      if (!item.spu) {
+        toast('SPU 不能为空');
+        return;
+      }
+      if (!item.parents.length) {
+        toast('至少填一个父体 ASIN');
+        return;
+      }
+      const next = state.products.slice();
+      if (isNew) {
+        if (next.some((p) => p.spu === item.spu)) {
+          toast('这个 SPU 已经登记过了');
+          return;
+        }
+        next.push(item);
+      } else {
+        next[state.editing] = item;
+      }
+      if (await saveProductConfig(state, next)) {
+        toast('已保存');
+        renderProductConfig(state);
+      }
+    });
+    const delBtn = modal.querySelector('[data-del]');
+    if (delBtn) {
+      delBtn.addEventListener('click', async () => {
+        const item = state.products[state.editing];
+        const ok = confirm('删除「' + item.spu + '」？\n它的目标与成本也会一起删掉（配置文件有备份）。');
+        if (!ok) return;
+        const next = state.products.filter((_, i) => i !== state.editing);
+        if (await saveProductConfig(state, next)) {
+          toast('已删除');
+          renderProductConfig(state);
+        }
+      });
+    }
+  }
+
+  async function saveProductConfig(state, next) {
+    try {
+      const resp = await fetch('/api/skill/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skillId: state.skill.id, mtimeMs: state.mtimeMs, products: next }),
+      });
+      const data = await resp.json();
+      if (!data.ok) {
+        alert('保存失败：' + (data.error || '未知错误'));
+        return false;
+      }
+      state.mtimeMs = data.mtimeMs;
+      const pd = data.files[CFG_PRODUCTS] || {};
+      const td = data.files[CFG_TARGETS] || {};
+      state.products = (pd.products || []).map((p) => {
+        const bare = String(p.spu || '').replace(/^LS-/, '');
+        return { ...p, target: td[p.spu] || td[bare] || {} };
+      });
+      return true;
+    } catch (err) {
+      alert('保存失败：' + err.message);
+      return false;
+    }
+  }
 
   function showModal(html, opts) {
     const root = $('#modalRoot');

@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const llm = require('./llm');
 const { runTurn } = require('./agent');
 const { commandList, runCommand } = require('./run');
+const { readConfig, saveConfig, configFiles } = require('./skillconfig');
 const {
   sendJson,
   readJsonBody,
@@ -57,6 +58,7 @@ function createApi(ctx) {
       featured: s.featured,
       runOnly: Boolean(s.runOnly),
       commands: commandList(s),
+      configFiles: s.meta && Array.isArray(s.meta.configFiles) ? s.meta.configFiles : [],
     };
   }
 
@@ -209,6 +211,43 @@ function createApi(ctx) {
         sendJson(res, 200, { ok: true, agent: { ...publicAgent(agent), skills: valid } });
       } catch (err) {
         sendJson(res, 400, { ok: false, error: friendlyError(err) });
+      }
+      return true;
+    }
+    // 技能配置（只限 skill.json 里 configFiles 声明的那几个文件）
+    if (pathname === '/api/skill/config' && req.method === 'GET') {
+      const skill = skillById(url.searchParams.get('id') || '');
+      if (!skill) {
+        sendJson(res, 404, { ok: false, error: '找不到技能' });
+        return true;
+      }
+      const data = readConfig(skill);
+      if (!data) {
+        sendJson(res, 400, { ok: false, error: '这个技能没有可编辑的配置' });
+        return true;
+      }
+      sendJson(res, 200, { ok: true, paths: configFiles(skill), ...data });
+      return true;
+    }
+
+    if (pathname === '/api/skill/config' && req.method === 'POST') {
+      let body;
+      try {
+        body = await readJsonBody(req, 4 * 1024 * 1024);
+      } catch (err) {
+        sendJson(res, 400, { ok: false, error: friendlyError(err) });
+        return true;
+      }
+      const skill = skillById(String(body.skillId || ''));
+      if (!skill) {
+        sendJson(res, 404, { ok: false, error: '找不到技能' });
+        return true;
+      }
+      try {
+        const result = saveConfig(skill, body);
+        sendJson(res, 200, result);
+      } catch (err) {
+        sendJson(res, err.status || 400, { ok: false, error: friendlyError(err) });
       }
       return true;
     }
