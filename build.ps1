@@ -23,7 +23,7 @@ if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 
-$items = @('Start.bat', '启动.bat', 'README.md', 'config.json', 'app', 'server', 'skills', 'runtime', 'docs', 'deploy')
+$items = @('Start.bat', '启动.bat', '停止工作台.bat', 'silent-start.vbs', 'README.md', 'config.json', 'app', 'server', 'skills', 'runtime', 'docs', 'deploy')
 foreach ($item in $items) {
   $src = Join-Path $root $item
   if (-not (Test-Path $src)) { continue }
