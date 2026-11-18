@@ -305,7 +305,17 @@ class ToolRunner {
     }
     const skill = (this.skills || []).find((s) => s.id === id);
     if (!skill) return { ok: false, content: '没有这个技能：' + id };
-    return { ok: true, content: '# 技能：' + skill.title + '\n\n' + skill.body };
+const cmds = skill.meta && Array.isArray(skill.meta.commands) ? skill.meta.commands : [];
+    const cmdBlock = cmds.length
+      ? '\n\n## 这个技能的「直接运行」按钮\n用户在工作台里点按钮执行，你只引用按钮名字，不要贴命令行：\n' +
+        cmds
+          .map((c) => {
+            const need = Array.isArray(c.params) ? c.params.filter((p) => p && p.required).map((p) => p.label || p.key) : [];
+            return '- ' + (c.label || '运行') + (need.length ? '（需要填：' + need.join('、') + '）' : '') + (c.desc ? ' —— ' + c.desc : '');
+          })
+          .join('\n')
+      : '';
+    return { ok: true, content: '# 技能：' + skill.title + '\n\n' + skill.body + cmdBlock };
   }
 
   writeFile(args) {
