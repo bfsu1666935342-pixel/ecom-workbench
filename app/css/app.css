@@ -1093,6 +1093,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   padding: 0 16px;
   font-size: 12.5px;
   font-weight: 500;
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1303,6 +1304,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 /* ---- 技能直接运行 ---- */
 .run-list { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 10px; }
 .run-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+.run-main { min-width: 0; }
 .run-main b { font-size: 12.5px; font-weight: 500; }
 .run-desc { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
 .run-panel { border: 1px solid var(--line-strong); border-radius: var(--r-card); padding: 14px; background: var(--surface); }
@@ -1314,4 +1316,4 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .run-files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .run-file { font-size: 11.5px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: var(--ink-2); }
 .run-file:hover { border-color: var(--accent); color: var(--accent); }
-.btn.small { height: 28px; padding: 0 10px; font-size: 11.5px; }
+.btn.small { height: 28px; padding: 0 12px; font-size: 11.5px; flex: none; }
