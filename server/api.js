@@ -150,6 +150,29 @@ function createApi(ctx) {
       return true;
     }
 
+    // 打开技能自己的文件夹（一般是 config/），让人可以直接改 JSON
+    if (pathname === '/api/skill/open' && req.method === 'POST') {
+      try {
+        const body = await readJsonBody(req, 1024 * 1024);
+        const skill = skillById(String(body.skillId || ''));
+        if (!skill) {
+          sendJson(res, 404, { ok: false, error: '找不到技能' });
+          return true;
+        }
+        const dir = path.join(skill.source, skill.dir);
+        const sub = String(body.sub || '').trim();
+        let abs = dir;
+        if (sub) {
+          abs = path.resolve(dir, sub);
+          if (!inside(dir, abs)) throw new Error('路径不合法');
+        }
+        openInExplorer(abs, false);
+        sendJson(res, 200, { ok: true, path: abs });
+      } catch (err) {
+        sendJson(res, 400, { ok: false, error: friendlyError(err) });
+      }
+      return true;
+    }
     // 技能自带命令：只跑 skill.json 里声明过的入口，模型不能临时拼命令行
     if (pathname === '/api/skill/run' && req.method === 'POST') {
       let body;

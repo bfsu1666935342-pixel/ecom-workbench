@@ -1338,7 +1338,7 @@
 
     const cmds = Array.isArray(skill.commands) ? skill.commands : [];
     const cmdHtml = cmds.length
-      ? '<h3>直接运行</h3><div class="run-list">' +
+      ? '<h3>直接运行 <button class="btn small ghost" type="button" data-openfolder style="margin-left:8px">打开配置文件夹</button></h3><div class="run-list">' +
         cmds
           .map((c, i) => {
             const need = Array.isArray(c.params) && c.params.length > 0;
@@ -1366,6 +1366,23 @@
 
     const close = showModal(html, { wide: true });
     const modal = close.modal;
+    modal.querySelector('[data-openfolder]')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        const resp = await fetch('/api/skill/open', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ skillId: skill.id, sub: 'config' }),
+        });
+        const data = await resp.json();
+        if (!data.ok) alert('打不开：' + (data.error || '未知原因'));
+      } catch (err) {
+        alert('打不开：' + (err && err.message ? err.message : String(err)));
+      } finally {
+        btn.disabled = false;
+      }
+    });
     modal.querySelectorAll('[data-run]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const cmd = cmds[Number(btn.dataset.run)];

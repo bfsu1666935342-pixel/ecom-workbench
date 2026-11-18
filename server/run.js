@@ -43,10 +43,29 @@ function commandList(skill) {
   return raw.map((c, i) => normalizeCommand(c, i)).filter(Boolean);
 }
 
+// 参数留空时，连同它前面的 --flag 一起丢掉，这样可选参数不用占位
 function fillArgs(template, params) {
-  return template.map((t) =>
-    String(t).replace(/\{(\w+)\}/g, (m, key) => (params[key] === undefined || params[key] === null ? m : String(params[key])))
-  );
+  const out = [];
+  for (const raw of template) {
+    const token = String(raw);
+    let missing = false;
+    const filled = token.replace(/\{(\w+)\}/g, (m, key) => {
+      const v = params[key];
+      if (v === undefined || v === null || String(v).trim() === '') {
+        missing = true;
+        return '';
+      }
+      return String(v);
+    });
+    if (missing) {
+      if (/^\{\w+\}$/.test(token) && out.length && String(out[out.length - 1]).startsWith('-')) {
+        out.pop();
+      }
+      continue;
+    }
+    out.push(filled);
+  }
+  return out;
 }
 
 function spawnFor(exe, args, cwd) {
