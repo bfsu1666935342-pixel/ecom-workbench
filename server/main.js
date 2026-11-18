@@ -190,7 +190,8 @@ function openBrowser(url) {
 async function main() {
   const noOpen = process.argv.includes('--no-open') || process.env.ECOM_NO_OPEN === '1';
 
-  if (!noOpen && process.env.ECOM_TEST !== '1') {
+  // 不管是否 --no-open，都先看看有没有实例在跑；有就只（可选地）打开浏览器，不再起第二个
+  if (process.env.ECOM_TEST !== '1') {
     for (let p = cfg.port; p < cfg.port + 6; p += 1) {
       try {
         const r = await fetch('http://127.0.0.1:' + p + '/api/health', { signal: AbortSignal.timeout(400) });
