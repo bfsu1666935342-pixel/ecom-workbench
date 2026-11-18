@@ -136,7 +136,52 @@ function sanitizeTarget(raw) {
   return out;
 }
 
-function saveConfig(skill, payload) {
+function diffDocs(oldProductsDoc, oldTargetsDoc, newProducts, newTargets) {
+  const lines = [];
+  const oldList = Array.isArray(oldProductsDoc && oldProductsDoc.products) ? oldProductsDoc.products : [];
+  const oldMap = new Map(oldList.map((p) => [String(p.spu || p.id || ''), p]));
+  const newMap = new Map(newProducts.map((p) => [p.spu, p]));
+
+  for (const [spu, item] of newMap) {
+    const before = oldMap.get(spu);
+    if (!before) {
+      const parents = (item.parents || []).map((x) => x.asin).join(' / ');
+      lines.push('新增 ' + spu + '（父体 ' + (parents || '—') + '，竞品 ' + (item.competitor.asin || '—') + '）');
+      continue;
+    }
+    const fields = [];
+    const oldParents = (before.parents || []).map((x) => x.asin).filter(Boolean).join(' / ');
+    const newParents = (item.parents || []).map((x) => x.asin).filter(Boolean).join(' / ');
+    if (oldParents !== newParents) fields.push('父体 ' + (oldParents || '—') + ' → ' + (newParents || '—'));
+    const oldComp = (before.competitor && before.competitor.asin) || '';
+    const newComp = (item.competitor && item.competitor.asin) || '';
+    if (oldComp !== newComp) fields.push('竞品 ' + (oldComp || '—') + ' → ' + (newComp || '—'));
+    if (String(before.site || '') !== String(item.site || '')) fields.push('站点 ' + (before.site || '—') + ' → ' + (item.site || '—'));
+    if (Number(before.price || 0) !== Number(item.price || 0)) fields.push('售价 ' + (before.price || '—') + ' → ' + (item.price || '—'));
+    if ((before.enabled === false) !== (item.enabled === false)) fields.push(item.enabled === false ? '改为停用' : '改为启用');
+
+    const oldT = oldTargetsDoc[spu] || oldTargetsDoc[String(spu).replace(/^LS-/, '')] || {};
+    const newT = newTargets[spu] || {};
+    if (Number(oldT.default_monthly || 0) !== Number(newT.default_monthly || 0)) {
+      fields.push('月目标 ' + (oldT.default_monthly || '—') + ' → ' + (newT.default_monthly || '—'));
+    }
+    if (Number(oldT.target_margin || 0) !== Number(newT.target_margin || 0)) {
+      fields.push('利润率 ' + Math.round(Number(oldT.target_margin || 0) * 100) + '% → ' + Math.round(Number(newT.target_margin || 0) * 100) + '%');
+    }
+    const oldCost = oldT.cost || {};
+    const newCost = newT.cost || {};
+    const costKeys = ['unit_cost', 'first_leg', 'fba_fee', 'referral_rate', 'other_per_unit'];
+    if (costKeys.some((k) => Number(oldCost[k] || 0) !== Number(newCost[k] || 0))) fields.push('成本项已更新');
+    if (fields.length) lines.push(spu + '：' + fields.join('，'));
+  }
+
+  for (const [spu] of oldMap) {
+    if (!newMap.has(spu)) lines.push('删除 ' + spu + '（连同它的目标与成本）');
+  }
+  return lines;
+}
+
+function saveConfig(skill, payload, opts = {}) {
   const files = configFiles(skill);
   if (files.length !== 2) throw Object.assign(new Error('这个技能没有声明可编辑的配置文件'), { status: 400 });
 
@@ -193,6 +238,13 @@ function saveConfig(skill, payload) {
     orphanKeys.push(key);
   }
 
+  const oldProductsDoc = current.files[files[0]] && typeof current.files[files[0]] === 'object' ? current.files[files[0]] : {};
+  const diff = diffDocs(oldProductsDoc, oldTargetsDoc, products, targets);
+
+  if (opts.dryRun) {
+    return { ok: true, dryRun: true, products, targets, diff, orphanKeys };
+  }
+
   const productsPath = fileInfo(skill, files[0]);
   const targetsPath = fileInfo(skill, files[1]);
   const backups = [];
@@ -200,7 +252,6 @@ function saveConfig(skill, payload) {
     if (info && fs.existsSync(info.abs)) backups.push(backup(info.abs));
   }
 
-  const oldProductsDoc = current.files[files[0]] && typeof current.files[files[0]] === 'object' ? current.files[files[0]] : {};
   const productsDoc = { ...oldProductsDoc, products };
   if (!productsDoc.currency) productsDoc.currency = 'USD';
 
@@ -212,9 +263,10 @@ function saveConfig(skill, payload) {
     ok: true,
     backups,
     orphanKeys,
+    diff,
     mtimeMs: after ? after.mtimeMs : 0,
     files: after ? after.files : {},
   };
 }
 
-module.exports = { configFiles, readConfig, saveConfig, pickTarget, targetKeysFor };
+module.exports = { configFiles, readConfig, saveConfig, diffDocs, pickTarget, targetKeysFor };

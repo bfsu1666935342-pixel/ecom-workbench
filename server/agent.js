@@ -38,7 +38,7 @@ function nowText() {
   return get('year') + '-' + get('month') + '-' + get('day') + ' ' + get('weekday') + ' ' + get('hour') + ':' + get('minute') + '（北京时间）';
 }
 
-function systemPrompt({ cfg, skill, agent, skills, search, hasMcp }) {
+function systemPrompt({ cfg, skill, agent, skills, search, hasMcp, canConfig }) {
   const lines = [];
   lines.push(
     '你是「' + cfg.brand + '」内置的亚马逊跨境电商运营 AI，服务中国卖家，覆盖选品、Listing、关键词、广告、竞品、差评、利润、库存、合规、客服等日常运营工作。',
@@ -69,6 +69,16 @@ function systemPrompt({ cfg, skill, agent, skills, search, hasMcp }) {
 '用户上传的 Excel / PDF / Word 已经作为文件内容传入对话，可以直接阅读；原始文件在 attachments/ 目录。',
     '用户以前上传过的文件都留在工作区，需要时先用 list_files 看 attachments/ 里有什么，再用 read_file / readCsv 自己读，**不要让他重新上传或者手抄数字**。找不到再问。',
   );
+  if (canConfig) {
+    lines.push(
+      '',
+      '## 改配置',
+      '要增删复盘产品、换父体或竞品、改月目标与成本时，用 update_skill_config 提交**完整**的产品列表；',
+      '它只生成提案，用户在界面上点「应用」才真正写盘。不要让他手改 JSON，也不要给命令行。',
+      '提交前先 load_skill 看清字段；保存失败会返回原因，照着改再提交一次。'
+    );
+  }
+
   if (agent) {
     const owned = Array.isArray(skills) ? skills : [];
     const catalog = (agent.skills || [])
@@ -222,11 +232,20 @@ async function runTurn(opts) {
         skills: opts.skills || [],
         search: Boolean(options.search),
         hasMcp: mcpDefs.length > 0,
+        canConfig: configSkills.length > 0,
       }),
     },
     ...session.api,
     userApi,
   ];
+
+// 本次会话允许"提案改配置"的技能：声明了 configFiles 的，且属于当前员工或当前技能
+  const configSkills = (opts.skills || []).filter((s) => {
+    if (!s.meta || !Array.isArray(s.meta.configFiles) || !s.meta.configFiles.length) return false;
+    if (agent) return (agent.skills || []).includes(s.id);
+    if (skill) return skill.id === s.id;
+    return true;
+  });
 
   const runner = new ToolRunner({
     workspace: store.workspace,
@@ -236,6 +255,7 @@ async function runTurn(opts) {
     mcp,
     skills: opts.skills || [],
     allowedSkills: agent ? agent.skills || [] : null,
+    configSkills,
     noReportFiles: Boolean(skill && skill.runOnly),
     skillTitle: skill ? skill.title : '',
     emit: (ev) => {
@@ -250,7 +270,10 @@ async function runTurn(opts) {
       emit(ev);
     },
   });
-  const tools = [...toolDefs({ search: Boolean(options.search), agentSkills: agent ? agent.skills : null }), ...mcpDefs];
+  const tools = [
+    ...toolDefs({ search: Boolean(options.search), agentSkills: agent ? agent.skills : null, configSkills }),
+    ...mcpDefs,
+  ];
   const model =
     options.model && ['deepseek-flash', 'deepseek-v4-pro'].includes(options.model) ? options.model : cfg.model;
 

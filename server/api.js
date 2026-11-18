@@ -7,6 +7,7 @@ const llm = require('./llm');
 const { runTurn } = require('./agent');
 const { commandList, runCommand } = require('./run');
 const { readConfig, saveConfig, configFiles } = require('./skillconfig');
+const proposals = require('./proposals');
 const {
   sendJson,
   readJsonBody,
@@ -214,6 +215,31 @@ function createApi(ctx) {
       }
       return true;
     }
+    // 应用模型提出的配置改动（提案是内存里的，30 分钟过期）
+    if (pathname === '/api/skill/config/apply' && req.method === 'POST') {
+      try {
+        const body = await readJsonBody(req, 1024 * 1024);
+        const proposal = proposals.take(String(body.proposalId || ''));
+        if (!proposal) {
+          sendJson(res, 404, { ok: false, error: '这个提案已经失效，让助手重新提交一次' });
+          return true;
+        }
+        const skill = skillById(proposal.skillId);
+        if (!skill) {
+          sendJson(res, 404, { ok: false, error: '找不到技能：' + proposal.skillId });
+          return true;
+        }
+        const result = saveConfig(skill, {
+          products: proposal.payload.products,
+          mtimeMs: proposal.mtimeMs,
+        });
+        sendJson(res, 200, { ...result, skillId: proposal.skillId, skillTitle: proposal.skillTitle });
+      } catch (err) {
+        sendJson(res, err.status || 400, { ok: false, error: friendlyError(err) });
+      }
+      return true;
+    }
+
     // 技能配置（只限 skill.json 里 configFiles 声明的那几个文件）
     if (pathname === '/api/skill/config' && req.method === 'GET') {
       const skill = skillById(url.searchParams.get('id') || '');

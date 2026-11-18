@@ -1148,6 +1148,52 @@
     refs.filesEl.append(card);
   }
 
+  function addConfigProposal(refs, ev) {
+    if (!refs || !refs.filesEl) return;
+    const card = document.createElement('div');
+    card.className = 'cfg-proposal';
+    const lines = Array.isArray(ev.diff) ? ev.diff : [];
+    card.innerHTML =
+      '<div class="cp-head"><span class="cp-tag">配置改动</span>' +
+      '<span class="cp-skill">' + esc(ev.skillTitle || ev.skillId || '') + '</span></div>' +
+      (ev.note ? '<div class="cp-note">' + esc(ev.note) + '</div>' : '') +
+      (lines.length
+        ? '<ul class="cp-list">' + lines.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>'
+        : '<div class="cp-note">和当前配置没有差异</div>') +
+      '<div class="cp-actions"><button class="btn small primary" type="button" data-apply>应用</button>' +
+      '<button class="btn small ghost" type="button" data-cancel>取消</button></div>';
+    refs.filesEl.style.display = '';
+    refs.filesEl.append(card);
+
+    const done = (text, ok) => {
+      card.innerHTML = '<div class="cp-head"><span class="cp-tag' + (ok ? ' ok' : ' bad') + '">配置' + (ok ? '已写入' : '未应用') + '</span>' +
+        '<span class="cp-skill">' + esc(ev.skillTitle || ev.skillId || '') + '</span></div>' +
+        '<div class="cp-note">' + esc(text) + '</div>';
+    };
+
+    card.querySelector('[data-cancel]').addEventListener('click', () => done('已取消，配置没有改动。', false));
+    card.querySelector('[data-apply]').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = '写入中…';
+      try {
+        const resp = await fetch('/api/skill/config/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ proposalId: ev.id }),
+        });
+        const data = await resp.json();
+        if (!data.ok) {
+          done('没写进去：' + (data.error || '未知错误') + '。可以让助手重新提交一次。', false);
+          return;
+        }
+        done('已写入。点技能里的「④ 生成本周周报」重新出报告即生效。', true);
+      } catch (err) {
+        done('没写进去：' + err.message, false);
+      }
+    });
+  }
+
   function usageText(u) {
     const parts = [];
     if (u.input) parts.push('输入 ' + fmtNum(u.input));
@@ -1343,6 +1389,11 @@
           }
           setStatus(live, '正在思考…');
         }
+        scrollMaybe();
+        break;
+      }
+      case 'config': {
+        addConfigProposal(refs, ev);
         scrollMaybe();
         break;
       }

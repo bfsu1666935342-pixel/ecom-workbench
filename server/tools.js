@@ -5,6 +5,8 @@ const path = require('path');
 const { spawn } = require('child_process');
 const llm = require('./llm');
 const { ensureDir, inside, uid, formatBytes } = require('./util');
+const skillconfig = require('./skillconfig');
+const proposals = require('./proposals');
 
 const MAX_TOOL_RESULT = 60000;
 
@@ -71,6 +73,33 @@ function toolDefs(opts = {}) {
       },
     });
   }
+  if (Array.isArray(opts.configSkills) && opts.configSkills.length) {
+    defs.push({
+      type: 'function',
+      function: {
+        name: 'update_skill_config',
+        description:
+          '提出一份技能配置的修改（周报的复盘产品、父体 ASIN、竞品、月目标、成本等）。' +
+          '你只是提案，不会直接写盘：用户会在界面上看到改动清单并点「应用」，点完立即生效。' +
+          '必须先 load_skill 看过配置结构，并且提交完整的产品列表（不是增量）。',
+        parameters: {
+          type: 'object',
+          properties: {
+            skillId: { type: 'string', description: '技能 id，例如 amazon-weekly-report' },
+            products: {
+              type: 'array',
+              description:
+                '完整产品列表。每项含 spu、site、parents[{asin}]、competitor{asin,url}、price、rating、enabled、target{default_monthly,target_margin,cost{unit_cost,first_leg,fba_fee,referral_rate}}',
+              items: { type: 'object' },
+            },
+            note: { type: 'string', description: '一句话说明这次改了什么，给用户看' },
+          },
+          required: ['skillId', 'products'],
+        },
+      },
+    });
+  }
+
   if (opts.search) {
     defs.push({
       type: 'function',
@@ -165,11 +194,12 @@ function toolDefs(opts = {}) {
 }
 
 class ToolRunner {
-  constructor({ workspace, dataDir, apiKey, baseUrl, emit, mcp, noReportFiles, skillTitle, skills, allowedSkills }) {
+  constructor({ workspace, dataDir, apiKey, baseUrl, emit, mcp, noReportFiles, skillTitle, skills, allowedSkills, configSkills }) {
     this.noReportFiles = Boolean(noReportFiles);
     this.skillTitle = String(skillTitle || '');
     this.skills = Array.isArray(skills) ? skills : [];
     this.allowedSkills = Array.isArray(allowedSkills) ? allowedSkills : null;
+    this.configSkills = Array.isArray(configSkills) ? configSkills : [];
     this.workspace = workspace;
     this.dataDir = dataDir;
     this.apiKey = apiKey;
@@ -197,6 +227,8 @@ class ToolRunner {
           return await this.readUrl(args);
         case 'list_files':
           return this.listFiles(args);
+        case 'update_skill_config':
+          return this.updateSkillConfig(args);
         case 'load_skill':
           return this.loadSkill(args);
         case 'read_file':
@@ -295,6 +327,43 @@ class ToolRunner {
     const max = Math.max(1000, Math.min(200000, Number(args.max_chars) || 60000));
     const text = fs.readFileSync(abs, 'utf8');
     return { ok: true, content: trim(text, max) };
+  }
+
+  updateSkillConfig(args) {
+    const id = String(args.skillId || '').trim();
+    if (!id) return { ok: false, content: '缺少 skillId' };
+    const skill = this.configSkills.find((s) => s.id === id);
+    if (!skill) {
+      return { ok: false, content: '这个技能没有可编辑的配置，或不在本次会话范围内：' + id };
+    }
+    if (!Array.isArray(args.products)) {
+      return { ok: false, content: 'products 必须是完整的产品数组' };
+    }
+    let preview;
+    try {
+      preview = skillconfig.saveConfig(skill, { products: args.products, mtimeMs: 0 }, { dryRun: true });
+    } catch (err) {
+      return { ok: false, content: '配置校验没过：' + err.message };
+    }
+    const note = String(args.note || '').trim();
+    const snapshot = skillconfig.readConfig(skill);
+    const mtimeMs = snapshot ? snapshot.mtimeMs : 0;
+    const proposalId = proposals.create({
+      skillId: id,
+      skillTitle: skill.title,
+      payload: { products: args.products },
+      diff: preview.diff,
+      note,
+    });
+    this.emit({ t: 'config', id: proposalId, skillId: id, skillTitle: skill.title, diff: preview.diff, note });
+    const lines = preview.diff.length ? preview.diff : ['（和当前配置没有差异）'];
+    return {
+      ok: true,
+      content:
+        '已生成修改提案，用户点「应用」后才写盘：\n' +
+        lines.map((x) => '- ' + x).join('\n') +
+        '\n\n请告诉用户看一眼清单、点「应用」即生效；不对就说哪里不对，你重新提案。不要让他手改文件。',
+    };
   }
 
   loadSkill(args) {

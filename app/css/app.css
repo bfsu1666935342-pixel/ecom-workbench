@@ -1390,3 +1390,15 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .cfg-check input { width: auto; }
 .btn.danger { color: var(--danger); border-color: var(--line-strong); }
 .btn.danger:hover { background: var(--raised); }
+
+/* ---- 配置改动提案卡片 ---- */
+.cfg-proposal { margin-top: 10px; border: 1px solid var(--line-strong); border-radius: var(--r-card); background: var(--surface); padding: 12px 14px; }
+.cp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cp-tag { font-size: 10px; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 4px; background: var(--raised); color: var(--ink-2); }
+.cp-tag.ok { background: var(--raised); color: var(--ink); }
+.cp-tag.bad { background: var(--raised); color: var(--faint); }
+.cp-skill { font-size: 11px; color: var(--faint); }
+.cp-note { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.cp-list { margin: 0 0 10px; padding-left: 18px; font-size: 12.5px; line-height: 1.75; }
+.cp-list li { color: var(--ink-2); }
+.cp-actions { display: flex; gap: 8px; }
