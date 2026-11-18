@@ -326,6 +326,7 @@ function createApi(ctx) {
           index: body.index,
           params: body.params || {},
           workspace: store.workspace,
+          dataDir: store.dataDir,
         });
         sendJson(res, 200, Object.assign({ ok: false }, result));
       } catch (err) {

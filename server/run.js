@@ -68,9 +68,55 @@ function fillArgs(template, params) {
   return out;
 }
 
-function spawnFor(exe, args, cwd) {
+// 把「数据源」里配好的 MCP 凭据注入技能进程。
+// 技能脚本优先读环境变量、其次读自己的 .env（.env 不会覆盖已有环境变量），
+// 所以用户在界面里配过一次数据源，周报这类技能就不用再填一遍 .env。
+function envFromMcp(dataDir) {
+  const out = {};
+  if (!dataDir) return out;
+  let doc;
+  try {
+    doc = JSON.parse(fs.readFileSync(path.join(dataDir, 'mcp.json'), 'utf8'));
+  } catch {
+    return out;
+  }
+  const servers = Array.isArray(doc.servers) ? doc.servers : [];
+  const secretOf = (url) => {
+    try {
+      const u = new URL(url);
+      for (const key of ['secret-key', 'secret_key', 'key', 'token', 'api_key']) {
+        const v = u.searchParams.get(key);
+        if (v) return v;
+      }
+    } catch {
+      /* 不是合法 URL 就算了 */
+    }
+    return '';
+  };
+
+  for (const server of servers) {
+    if (!server || server.enabled === false) continue;
+    const url = String(server.url || '').trim();
+    const host = url.toLowerCase();
+    const token = String(server.token || '').trim();
+    const inline = secretOf(url);
+    if (host.includes('lingxing')) {
+      if (url) out.LINGXING_MCP_URL = url;
+      if (token || inline) out.LINGXING_MCP_KEY = token || inline;
+    } else if (host.includes('sorftime')) {
+      if (url) out.SORFTIME_MCP_URL = url;
+      if (token || inline) out.SORFTIME_MCP_KEY = token || inline;
+    } else if (host.includes('sif')) {
+      if (url) out.SIF_MCP_URL = url;
+      if (token || inline) out.SIF_MCP_KEY = token || inline;
+    }
+  }
+  return out;
+}
+
+function spawnFor(exe, args, cwd, extraEnv) {
   const lower = exe.toLowerCase();
-  const opts = { cwd, windowsHide: true, env: process.env };
+  const opts = { cwd, windowsHide: true, env: { ...process.env, ...(extraEnv || {}) } };
   if (lower.endsWith('.cmd') || lower.endsWith('.bat')) {
     return spawn('cmd.exe', ['/c', exe].concat(args), opts);
   }
@@ -128,7 +174,7 @@ function copyToWorkspace(list, workspace, skillId) {
   return saved;
 }
 
-function runCommand({ skill, index, params, workspace }) {
+function runCommand({ skill, index, params, workspace, dataDir }) {
   const list = commandList(skill);
   const cmd = list.find((c) => c.index === Number(index)) || list[Number(index)];
   if (!cmd) return Promise.reject(Object.assign(new Error('这个技能没有配置可运行命令'), { status: 400 }));
@@ -157,7 +203,7 @@ function runCommand({ skill, index, params, workspace }) {
     let settled = false;
     let child;
     try {
-      child = spawnFor(exe, args, dir);
+      child = spawnFor(exe, args, dir, envFromMcp(dataDir));
     } catch (err) {
       resolve({ ok: false, error: '启动失败：' + (err && err.message), output: '', files: [], ms: 0 });
       return;
@@ -206,4 +252,5 @@ function runCommand({ skill, index, params, workspace }) {
   });
 }
 
-module.exports = { commandList, runCommand, skillDir };
+module.exports = {
+  envFromMcp, commandList, runCommand, skillDir };
