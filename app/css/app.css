@@ -1299,3 +1299,19 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   .file-card { width: 100%; }
   .pill { padding: 0 7px; }
 }
+
+/* ---- 技能直接运行 ---- */
+.run-list { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 10px; }
+.run-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+.run-main b { font-size: 12.5px; font-weight: 500; }
+.run-desc { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
+.run-panel { border: 1px solid var(--line-strong); border-radius: var(--r-card); padding: 14px; background: var(--surface); }
+.run-cmd-head { font-size: 11.5px; color: var(--muted); margin-bottom: 10px; }
+.run-cmd-head code { font-family: var(--mono); font-size: 11px; background: var(--raised); padding: 2px 6px; border-radius: 4px; word-break: break-all; }
+.run-act { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.run-hint { font-size: 10.5px; color: var(--faint); line-height: 1.5; }
+.run-out { margin: 10px 0 0; padding: 10px; background: var(--raised); border-radius: var(--r-sm); font-family: var(--mono); font-size: 11px; line-height: 1.6; max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.run-files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.run-file { font-size: 11.5px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: var(--ink-2); }
+.run-file:hover { border-color: var(--accent); color: var(--accent); }
+.btn.small { height: 28px; padding: 0 10px; font-size: 11.5px; }

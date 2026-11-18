@@ -5,6 +5,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const llm = require('./llm');
 const { runTurn } = require('./agent');
+const { commandList, runCommand } = require('./run');
 const {
   sendJson,
   readJsonBody,
@@ -35,6 +36,7 @@ function createApi(ctx) {
       starters: s.starters,
       fields: s.fields,
       featured: s.featured,
+      commands: commandList(s),
     };
   }
 
@@ -144,6 +146,41 @@ function createApi(ctx) {
         return true;
       }
       sendJson(res, 200, { ...publicSkill(skill), body: skill.body });
+      return true;
+    }
+
+    // 技能自带命令：只跑 skill.json 里声明过的入口，模型不能临时拼命令行
+    if (pathname === '/api/skill/run' && req.method === 'POST') {
+      let body;
+      try {
+        body = await readJsonBody(req, 1024 * 1024);
+      } catch (err) {
+        sendJson(res, 400, { ok: false, error: friendlyError(err) });
+        return true;
+      }
+      const skill = skillById(String(body.skillId || ''));
+      if (!skill) {
+        sendJson(res, 404, { ok: false, error: '找不到技能' });
+        return true;
+      }
+      if (busy.has('run:' + skill.id)) {
+        sendJson(res, 409, { ok: false, error: '这个技能正在运行，等它跑完' });
+        return true;
+      }
+      busy.add('run:' + skill.id);
+      try {
+        const result = await runCommand({
+          skill,
+          index: body.index,
+          params: body.params || {},
+          workspace: store.workspace,
+        });
+        sendJson(res, 200, Object.assign({ ok: false }, result));
+      } catch (err) {
+        sendJson(res, 200, { ok: false, error: friendlyError(err) });
+      } finally {
+        busy.delete('run:' + skill.id);
+      }
       return true;
     }
 

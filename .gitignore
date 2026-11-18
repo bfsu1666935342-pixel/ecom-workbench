@@ -8,3 +8,4 @@ docs/*.png
 *.zip
 *.log
 .env
+runtime/python/

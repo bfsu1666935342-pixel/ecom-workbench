@@ -1336,6 +1336,22 @@
       .map((s) => '<button class="starter" type="button" data-starter="' + esc(s) + '">' + esc(s) + '</button>')
       .join('');
 
+    const cmds = Array.isArray(skill.commands) ? skill.commands : [];
+    const cmdHtml = cmds.length
+      ? '<h3>直接运行</h3><div class="run-list">' +
+        cmds
+          .map((c, i) => {
+            const need = Array.isArray(c.params) && c.params.length > 0;
+            return (
+              '<div class="run-item"><div class="run-main"><b>' + esc(c.label) + '</b>' +
+              (c.desc ? '<div class="run-desc">' + esc(c.desc) + '</div>' : '') +
+              '</div><button class="btn small" type="button" data-run="' + i + '">' + (need ? '填参数' : '运行') + '</button></div>'
+            );
+          })
+          .join('') +
+        '</div><div class="run-panel hidden" data-runpanel></div>'
+      : '';
+
     const html =
       '<div class="modal-head"><div class="skill-hero"><div class="skill-no">' + skillNo(skill) + '</div>' +
       '<div><div class="skill-group-tag">' + esc(skill.group || '技能') + '</div><h2>' + esc(skill.title) + '</h2>' +
@@ -1343,12 +1359,34 @@
       '<button class="modal-close" data-close type="button">×</button></div>' +
       '<p class="skill-desc">' + esc(skill.description || '') + '</p>' +
       (starters ? '<h3>常用问法</h3><div class="starter-list">' + starters + '</div>' : '') +
+      cmdHtml +
       fieldsHtml +
       '<div class="modal-actions"><button class="btn ghost" data-close type="button">取消</button>' +
       '<button class="btn primary" data-start type="button">用这个技能开始</button></div>';
 
     const close = showModal(html, { wide: true });
     const modal = close.modal;
+    modal.querySelectorAll('[data-run]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cmd = cmds[Number(btn.dataset.run)];
+        if (!cmd) return;
+        const panel = modal.querySelector('[data-runpanel]');
+        panel.classList.remove('hidden');
+        panel.innerHTML =
+          '<div class="run-cmd-head">将要执行 <code>' + esc(cmd.run.join(' ')) + '</code></div>' +
+          (cmd.params || [])
+            .map(
+              (p) =>
+                '<div class="field"><label>' + esc(p.label) + (p.required ? ' <b>*</b>' : '') + '</label>' +
+                '<input type="text" data-param="' + esc(p.key) + '" placeholder="' + esc(p.placeholder || '') + '"></div>'
+            )
+            .join('') +
+          '<div class="run-act"><button class="btn primary" type="button" data-gorun>开始运行</button>' +
+          '<span class="run-hint">最长 ' + Math.round((cmd.timeoutMs || 180000) / 1000) + ' 秒，结果会存到工作区</span></div>' +
+          '<div data-runresult></div>';
+        panel.querySelector('[data-gorun]').addEventListener('click', () => doRunSkill(modal, skill, cmd, panel));
+      });
+    });
     modal.querySelectorAll('[data-starter]').forEach((btn) => {
       btn.addEventListener('click', () => {
         close();
@@ -1367,6 +1405,58 @@
       const first = modal.querySelector('[data-field]');
       if (first) first.focus();
     }, 60);
+  }
+
+  async function doRunSkill(modal, skill, cmd, panel) {
+    const btn = panel.querySelector('[data-gorun]');
+    const box = panel.querySelector('[data-runresult]');
+    const params = {};
+    panel.querySelectorAll('[data-param]').forEach((el) => {
+      const v = el.value.trim();
+      if (v) params[el.dataset.param] = v;
+    });
+    const limit = Math.round((cmd.timeoutMs || 180000) / 1000);
+    btn.disabled = true;
+    btn.textContent = '运行中…';
+    box.innerHTML = '<pre class="run-out">正在运行，最长 ' + limit + ' 秒…</pre>';
+    try {
+      const resp = await fetch('/api/skill/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skillId: skill.id, index: cmd.index, params }),
+      });
+      const data = await resp.json();
+      const secs = data.ms ? Math.round(data.ms / 1000) : 0;
+      let html = '';
+      if (data.ok) {
+        html =
+          '<pre class="run-out">' + esc(data.output || '（没有输出）') + '</pre>' +
+          '<div class="run-hint" style="margin-top:6px">✅ 完成，用时 ' + secs + ' 秒</div>';
+      } else {
+        html =
+          '<pre class="run-out">' + esc((data.error ? data.error + '\n\n' : '') + (data.output || '')) + '</pre>' +
+          '<div class="run-hint" style="margin-top:6px;color:var(--danger)">❌ 没有成功' +
+          (data.code !== undefined && data.code !== null ? '（退出码 ' + data.code + '）' : '') + '</div>';
+      }
+      if (Array.isArray(data.files) && data.files.length) {
+        html +=
+          '<div class="run-files">' +
+          data.files
+            .map(
+              (f) =>
+                '<a class="run-file" target="_blank" rel="noopener" href="/api/file?path=' +
+                encodeURIComponent(f) + '">' + esc(String(f).split('/').pop()) + '</a>'
+            )
+            .join('') +
+          '</div><div class="run-hint" style="margin-top:6px">结果已复制到工作区「技能产出」</div>';
+      }
+      box.innerHTML = html;
+    } catch (err) {
+      box.innerHTML = '<pre class="run-out">' + esc('请求失败：' + (err && err.message ? err.message : String(err))) + '</pre>';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '重新运行';
+    }
   }
 
   function applySkill(skill, values, starter) {
