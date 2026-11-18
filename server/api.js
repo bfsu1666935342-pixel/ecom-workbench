@@ -31,6 +31,7 @@ function createApi(ctx) {
   function publicAgent(a) {
     return {
       id: a.id,
+      role: a.role,
       title: a.title,
       icon: a.icon,
       order: a.order,

@@ -40,6 +40,7 @@ function loadAgents(dirs) {
         id: String(meta.id),
         dir: entry.name,
         source: dir,
+        role: String(meta.role || ''),
         title: String(meta.title || meta.id),
         icon: String(meta.icon || '🧑‍💼'),
         order: Number(meta.order || 100),

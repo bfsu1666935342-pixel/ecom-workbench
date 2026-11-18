@@ -252,7 +252,8 @@
       el.type = 'button';
       el.innerHTML =
         '<div class="agent-icon">' + esc(agent.icon || '🧑‍💼') + '</div>' +
-        '<div class="agent-body"><div class="agent-title">' + esc(agent.title) + '</div>' +
+        '<div class="agent-body"><div class="agent-role">' + esc(agent.role || '') + '</div>' +
+        '<div class="agent-title">' + esc(agent.title) + '</div>' +
         '<div class="agent-tagline">' + esc(agent.tagline || '') + '</div>' +
         '<div class="agent-skills">' +
         skills.map((s) => '<span class="agent-skill">' + esc(s.title) + '</span>').join('') +
@@ -288,7 +289,7 @@
       const left = state.skills.filter((s) => !(agent.skills || []).includes(s.id));
       return (
         '<div class="modal-head"><div class="skill-hero"><div class="skill-no">' + esc(agent.icon || '🧑‍💼') + '</div>' +
-        '<div><div class="skill-group-tag">员工</div><h2>' + esc(agent.title) + '</h2>' +
+        '<div><div class="skill-group-tag">' + esc(agent.role ? agent.role + ' · 员工' : '员工') + '</div><h2>' + esc(agent.title) + '</h2>' +
         '<div class="tag">' + esc(agent.tagline || '') + '</div></div></div>' +
         '<button class="modal-close" data-close type="button">×</button></div>' +
         '<p class="skill-desc">' + esc(agent.description || '') + '</p>' +
