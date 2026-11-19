@@ -8,6 +8,7 @@ const { runTurn } = require('./agent');
 const { commandList, runCommand } = require('./run');
 const { readConfig, saveConfig, configFiles } = require('./skillconfig');
 const proposals = require('./proposals');
+const updater = require('./update');
 const {
   sendJson,
   readJsonBody,
@@ -238,6 +239,38 @@ function createApi(ctx) {
       } catch (err) {
         sendJson(res, err.status || 400, { ok: false, error: friendlyError(err) });
       }
+      return true;
+    }
+
+    // 应用内更新
+    if (pathname === '/api/update/check' && req.method === 'GET') {
+      try {
+        const info = await updater.checkForUpdate(cfg.version);
+        sendJson(res, 200, { ok: true, ...info });
+      } catch (err) {
+        sendJson(res, 200, { ok: false, error: friendlyError(err) });
+      }
+      return true;
+    }
+
+    if (pathname === '/api/update/status' && req.method === 'GET') {
+      sendJson(res, 200, { ok: true, ...updater.getState(), version: cfg.version });
+      return true;
+    }
+
+    if (pathname === '/api/update/apply' && req.method === 'POST') {
+      let body = {};
+      try {
+        body = await readJsonBody(req, 1024 * 64);
+      } catch {
+        body = {};
+      }
+      const dryRun = Boolean(body && body.dry);
+      const restart = !(body && body.restart === false);
+      updater.applyUpdate({ appRoot: cfg.root, dryRun, restart }).catch((err) => {
+        console.error('  [更新失败] ' + err.message);
+      });
+      sendJson(res, 200, { ok: true, started: true, dryRun });
       return true;
     }
 

@@ -2295,10 +2295,103 @@
       '<div class="s-control"><button class="btn" id="openWs" type="button">打开文件夹</button></div></div>' +
       '<div class="setting-row"><div><div class="s-label">数据</div><div class="s-help">导出全部对话为 JSON；清空只删除本机对话记录。</div></div>' +
       '<div class="s-control"><button class="btn" id="exportBtn" type="button">导出</button><button class="btn danger" id="clearBtn" type="button">清空</button></div></div>' +
+      '<div class="setting-row"><div><div class="s-label">版本与更新</div>' +
+      '<div class="s-help">当前 v' + esc(state.cfg ? state.cfg.version : '?') + '。检查到新版本可以在应用内直接下载、自动重启。</div>' +
+      '<div class="upd-state" id="updState"></div></div>' +
+      '<div class="s-control"><button class="btn" id="updCheck" type="button">检查更新</button>' +
+      '<button class="btn primary hidden" id="updApply" type="button">下载并更新</button></div></div>' +
+      '<div class="upd-progress hidden" id="updProgress"><div class="upd-bar"><span id="updBar"></span></div><div class="upd-msg" id="updMsg"></div></div>' +
       '<div class="modal-actions"><span class="left" style="font-size:10.5px;color:var(--faint);align-self:center">' + esc(state.cfg ? state.cfg.brand + ' v' + state.cfg.version : '') + '</span>' +
       '<button class="btn ghost" data-close type="button">取消</button><button class="btn primary" id="saveSet" type="button">保存</button></div>';
 
     const close = showModal(html, { wide: true });
+    // ---- 版本与更新 ----
+    const updState = $('#updState');
+    const updApply = $('#updApply');
+    const updProgress = $('#updProgress');
+    const updBar = $('#updBar');
+    const updMsg = $('#updMsg');
+    let updTimer = null;
+
+    const showProgress = (percent, message) => {
+      if (!updProgress) return;
+      updProgress.classList.remove('hidden');
+      if (updBar) updBar.style.width = Math.max(0, Math.min(100, percent || 0)) + '%';
+      if (updMsg) updMsg.textContent = message || '';
+    };
+
+    const pollUpdate = () => {
+      clearInterval(updTimer);
+      updTimer = setInterval(async () => {
+        let st = null;
+        try {
+          st = await fetch('/api/update/status').then((r) => r.json());
+        } catch {
+          showProgress(100, '正在重启，页面稍后自动刷新…');
+          clearInterval(updTimer);
+          setTimeout(() => location.reload(), 5000);
+          return;
+        }
+        if (!st || !st.ok) return;
+        showProgress(st.phase === 'downloading' ? st.percent : 100, st.message || st.phase);
+        if (st.phase === 'restarting') {
+          clearInterval(updTimer);
+          setTimeout(() => location.reload(), 6000);
+        } else if (st.phase === 'error') {
+          clearInterval(updTimer);
+          if (updApply) updApply.disabled = false;
+        } else if (st.phase === 'done') {
+          clearInterval(updTimer);
+        }
+      }, 900);
+    };
+
+    const updCheckBtn = $('#updCheck');
+    if (updCheckBtn) {
+      updCheckBtn.addEventListener('click', async () => {
+        updCheckBtn.disabled = true;
+        if (updState) updState.textContent = '正在检查…';
+        try {
+          const r = await fetch('/api/update/check').then((x) => x.json());
+          if (!r.ok) {
+            if (updState) updState.textContent = '检查失败：' + (r.error || '网络不通');
+          } else if (r.hasUpdate) {
+            if (updState) updState.innerHTML = '发现新版本 <b>v' + esc(r.latest) + '</b>（当前 v' + esc(r.current) + '）';
+            if (updApply) updApply.classList.remove('hidden');
+          } else {
+            if (updState) updState.textContent = '已经是最新版本（v' + r.current + '）';
+          }
+        } catch (err) {
+          if (updState) updState.textContent = '检查失败：' + err.message;
+        } finally {
+          updCheckBtn.disabled = false;
+        }
+      });
+    }
+
+    if (updApply) {
+      updApply.addEventListener('click', async () => {
+        updApply.disabled = true;
+        showProgress(0, '准备下载…');
+        try {
+          const r = await fetch('/api/update/apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          }).then((x) => x.json());
+          if (!r.ok) {
+            showProgress(0, '启动更新失败：' + (r.error || '未知错误'));
+            updApply.disabled = false;
+            return;
+          }
+          pollUpdate();
+        } catch (err) {
+          showProgress(0, '启动更新失败：' + err.message);
+          updApply.disabled = false;
+        }
+      });
+    }
+
     $('#setModel').value = state.settings.model || (state.cfg && state.cfg.model) || 'deepseek-flash';
     $('#setTheme').value = state.settings.theme || 'auto';
     $('#setSearch').checked = Boolean(state.settings.search);
