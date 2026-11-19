@@ -60,6 +60,7 @@
       updateModelTag();
       updateSkillUI();
       toggleWelcome();
+      setTimeout(() => checkUpdateSilently(), 2500);
       showView('chat');
       if (!state.settings.key) showOnboarding();
     } catch (err) {
@@ -2352,7 +2353,7 @@
         updCheckBtn.disabled = true;
         if (updState) updState.textContent = '正在检查…';
         try {
-          const r = await fetch('/api/update/check').then((x) => x.json());
+          const r = await fetch('/api/update/check?force=1').then((x) => x.json());
           if (!r.ok) {
             if (updState) updState.textContent = '检查失败：' + (r.error || '网络不通');
           } else if (r.hasUpdate) {
@@ -2460,9 +2461,81 @@
     });
   }
 
+  // ---------------- 更新提醒 ----------------
+
+  async function checkUpdateSilently() {
+    try {
+      const info = await fetch('/api/update/check').then((r) => r.json());
+      if (!info || !info.ok) return;
+      state.updateInfo = info;
+      const dot = $('#updDot');
+      if (dot && info.hasUpdate) {
+        dot.classList.remove('hidden');
+        dot.textContent = '';
+        const key = 'ecom.updateNotified';
+        if (localStorage.getItem(key) !== info.latest) {
+          localStorage.setItem(key, info.latest);
+          toast('有新版本 v' + info.latest + '，点左下角「说明」可以更新');
+        }
+      }
+    } catch {
+      /* 检查失败就算了，不打扰用户 */
+    }
+  }
+
+  async function startUpdate({ bar, msg, btn }) {
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '更新中…';
+    }
+    const setP = (p, text) => {
+      if (bar) bar.style.width = Math.max(0, Math.min(100, p || 0)) + '%';
+      if (msg) msg.textContent = text || '';
+    };
+    setP(0, '准备下载…');
+    try {
+      const r = await fetch('/api/update/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      }).then((x) => x.json());
+      if (!r.ok) throw new Error(r.error || '启动失败');
+      const timer = setInterval(async () => {
+        let st = null;
+        try {
+          st = await fetch('/api/update/status').then((x) => x.json());
+        } catch {
+          clearInterval(timer);
+          setP(100, '正在重启，页面稍后自动刷新…');
+          setTimeout(() => location.reload(), 6000);
+          return;
+        }
+        if (!st || !st.ok) return;
+        setP(st.phase === 'downloading' ? st.percent : 100, st.message || st.phase);
+        if (st.phase === 'restarting') {
+          clearInterval(timer);
+          setTimeout(() => location.reload(), 6000);
+        } else if (st.phase === 'error' || st.phase === 'done') {
+          clearInterval(timer);
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = '下载并更新';
+          }
+        }
+      }, 900);
+    } catch (err) {
+      setP(0, '更新失败：' + err.message);
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '下载并更新';
+      }
+    }
+  }
+
   function showHelp() {
     const html =
       '<div class="modal-head"><div><h2>使用说明</h2><p>三步开始，以及常用快捷键。</p></div><button class="modal-close" data-close type="button">×</button></div>' +
+      updateBlockHtml() +
       '<div class="help">' +
       '<h3>1. 填 Key</h3><p>到 <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener">platform.deepseek.com</a> 创建 API Key，在「设置」里填入。按量计费，每次回答下方会显示本次用量。</p>' +
       '<h3>2. 选技能</h3><p>左侧技能库覆盖选品、Listing、关键词、广告、竞品、差评、利润、库存、合规、客服。点开一个技能，填几项信息，或者直接用常用问法开始。</p>' +
@@ -2478,7 +2551,33 @@
       '<h3>安全与隐私</h3><p>对话记录和文件只存在这台电脑上；API Key 存在浏览器本地，请求直接发往 DeepSeek 官方接口。生成的内容请自行复核，尤其是合规、税务与平台政策。</p>' +
       '</div>' +
       '<div class="modal-actions"><button class="btn primary" data-close type="button">关闭</button></div>';
-    showModal(html, { wide: true });
+    const close = showModal(html, { wide: true });
+    const box = close.modal;
+    bindUpdateBlock(box);
+  }
+
+  function updateBlockHtml() {
+    const info = state.updateInfo;
+    if (!info) {
+      return '<div class="upd-inline"><span class="upd-inline-text">版本 v' + esc(state.cfg ? state.cfg.version : '') + '</span></div>';
+    }
+    if (!info.hasUpdate) {
+      return '<div class="upd-inline"><span class="upd-inline-text">已是最新版本 v' + esc(state.cfg ? state.cfg.version : '') + '</span></div>';
+    }
+    return (
+      '<div class="upd-inline has-new"><div class="upd-inline-head">有新版本 <b>v' + esc(info.latest) + '</b>（当前 v' + esc(info.current) + '）</div>' +
+      '<div class="upd-progress"><div class="upd-bar"><span data-updbar></span></div><div class="upd-msg" data-updmsg></div></div>' +
+      '<div class="upd-inline-actions"><button class="btn primary small" type="button" data-updapply>下载并更新</button>' +
+      '<a class="btn small ghost" href="' + esc(info.pageUrl || '') + '" target="_blank" rel="noopener">看更新内容</a></div></div>'
+    );
+  }
+
+  function bindUpdateBlock(root) {
+    const btn = root.querySelector('[data-updapply]');
+    if (!btn) return;
+    btn.addEventListener('click', () =>
+      startUpdate({ bar: root.querySelector('[data-updbar]'), msg: root.querySelector('[data-updmsg]'), btn })
+    );
   }
 
   const EYE_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="1.5"/></svg>';

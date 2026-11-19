@@ -245,7 +245,8 @@ function createApi(ctx) {
     // 应用内更新
     if (pathname === '/api/update/check' && req.method === 'GET') {
       try {
-        const info = await updater.checkForUpdate(cfg.version);
+        const force = url.searchParams.get('force') === '1';
+        const info = await updater.checkForUpdate(cfg.version, { force });
         sendJson(res, 200, { ok: true, ...info });
       } catch (err) {
         sendJson(res, 200, { ok: false, error: friendlyError(err) });

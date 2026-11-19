@@ -40,11 +40,26 @@ async function github(pathname, timeoutMs = 8000) {
   return resp.json();
 }
 
-async function checkForUpdate(currentVersion) {
+let lastCheck = { at: 0, version: '', info: null };
+
+function clearCache() {
+  lastCheck = { at: 0, version: '', info: null };
+}
+
+async function checkForUpdate(currentVersion, opts = {}) {
+  const ttl = opts.maxAge === undefined ? 20 * 60 * 1000 : opts.maxAge;
+  if (
+    !opts.force &&
+    lastCheck.info &&
+    lastCheck.version === String(currentVersion) &&
+    Date.now() - lastCheck.at < ttl
+  ) {
+    return { ...lastCheck.info, cached: true };
+  }
   const rel = await github('/latest');
   const tag = String(rel.tag_name || '');
   const asset = (rel.assets || []).find((a) => /\.zip$/i.test(a.name || ''));
-  return {
+  const result = {
     current: currentVersion,
     latest: tag.replace(/^v/i, ''),
     hasUpdate: isNewer(tag, currentVersion),
@@ -54,6 +69,8 @@ async function checkForUpdate(currentVersion) {
     assetSize: asset ? asset.size : 0,
     assetUrl: asset ? asset.browser_download_url : '',
   };
+  lastCheck = { at: Date.now(), version: String(currentVersion), info: result };
+  return result;
 }
 
 function rmrf(target) {
