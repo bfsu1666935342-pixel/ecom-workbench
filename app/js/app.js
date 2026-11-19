@@ -626,17 +626,21 @@
       (s.preset === 'lingxing' ? '<button class="link-btn" id="mcpHelp" type="button">帮助</button>' : '') +
       '<button class="modal-close" data-close type="button">×</button></div></div>' +
       '<div class="field"><label>名称</label><input type="text" id="mcpName" value="' + esc(s.name) + '" placeholder="例如：领星 ERP" autocomplete="off" data-lpignore="true"></div>' +
-      '<div class="field"><label>MCP 地址</label><input type="text" id="mcpUrl" value="' + esc(s.url || '') + '" placeholder="https://.../mcp" spellcheck="false" autocomplete="off" autocorrect="off" data-lpignore="true" data-1p-ignore></div>' +
+      '<div class="field"><label>MCP 地址</label><input type="text" id="mcpUrl" value="' + esc(s.url || '') + '" placeholder="https://mcp.example.com 或 https://...?secret-key=xxx" spellcheck="false" autocomplete="off" autocorrect="off" data-lpignore="true" data-1p-ignore>' +
+      '<div class="mcp-form-help" id="mcpUrlHint">带密钥的整段网址可以直接粘进来，会自动拆出来。</div></div>' +
+      '<div class="field"><label>密钥</label><input type="password" id="mcpToken" value="' + esc(s.token || '') + '" placeholder="服务商给的那串字符" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-form-type="other">' +
+      '<div class="mcp-form-help" id="mcpTokenHint">地址里已经带密钥的，这里留空即可。</div></div>' +
+      '<details class="mcp-advanced"><summary>高级（一般不用动）</summary>' +
       '<div class="form-grid">' +
       '<div class="field"><label>认证方式</label><select id="mcpAuth">' +
-      '<option value="bearer"' + (s.authMode === 'bearer' ? ' selected' : '') + '>Bearer Token</option>' +
-      '<option value="query"' + (s.authMode === 'query' ? ' selected' : '') + '>URL 参数 key</option>' +
-      '<option value="headers"' + (s.authMode === 'headers' ? ' selected' : '') + '>自定义 Headers</option>' +
+      '<option value="bearer"' + (s.authMode === 'bearer' ? ' selected' : '') + '>钥匙在密钥框里（Bearer）</option>' +
+      '<option value="query"' + (s.authMode === 'query' ? ' selected' : '') + '>钥匙在网址里（URL 参数）</option>' +
+      '<option value="headers"' + (s.authMode === 'headers' ? ' selected' : '') + '>钥匙在自定义 Headers 里</option>' +
       '</select></div>' +
-      '<div class="field"><label id="mcpTokenLabel">访问令牌 / Key</label><input type="password" id="mcpToken" value="' + esc(s.token || '') + '" placeholder="服务商控制台里的 Key" autocomplete="new-password" data-lpignore="true" data-1p-ignore data-form-type="other"></div>' +
+      '<div class="field" id="mcpKeyParamField"><label>URL 参数名</label><input type="text" id="mcpKeyParam" value="' + esc(s.keyParam || 'key') + '" placeholder="key"></div>' +
       '</div>' +
-      '<div class="field" id="mcpKeyParamField"><label>URL 参数名</label><input type="text" id="mcpKeyParam" value="' + esc(s.keyParam || 'key') + '" placeholder="key"><div class="mcp-form-help">Sorftime 默认用 key 放在 URL 参数里；其他服务商以文档为准。</div></div>' +
-      '<div class="field"><label>附加 Headers（JSON，可选）</label><textarea id="mcpHeaders" rows="3" spellcheck="false">' + esc(JSON.stringify(s.headers || {}, null, 2)) + '</textarea><div class="mcp-form-help">例如 {"X-API-Key":"..."}。不要在这里重复写 Authorization，除非服务商要求。</div></div>' +
+      '<div class="field"><label>附加 Headers（JSON）</label><textarea id="mcpHeaders" rows="2" spellcheck="false">' + esc(JSON.stringify(s.headers || {}, null, 2)) + '</textarea><div class="mcp-form-help">只有服务商要求特殊请求头时才用，一般留 {}。</div></div>' +
+      '</details>' +
       '<label class="switch"><input type="checkbox" id="mcpEnabled"' + (s.enabled ? ' checked' : '') + '> 启用这个数据源</label>' +
       '<div class="mcp-test-state" id="mcpTestState"></div>' +
       '<div class="mcp-tools" id="mcpTools"></div>' +
@@ -658,6 +662,67 @@
       if (urlEl) urlEl.value = s.url || '';
       if (tokenEl) tokenEl.value = s.token || '';
     }, 0);
+    // ---- 地址里带密钥的（SIF / Sorftime），自动拆出来 ----
+    const KEY_PARAMS = ['secret-key', 'secret_key', 'key', 'token', 'api_key', 'apikey'];
+    const splitKeyFromUrl = (value) => {
+      let u;
+      try {
+        u = new URL(value);
+      } catch {
+        return null;
+      }
+      for (const name of KEY_PARAMS) {
+        const v = u.searchParams.get(name);
+        if (v) {
+          u.searchParams.delete(name);
+          return { key: v, param: name, cleanUrl: u.toString() };
+        }
+      }
+      return null;
+    };
+    const urlEl = modal.querySelector('#mcpUrl');
+    const tokenEl = modal.querySelector('#mcpToken');
+    const authEl = modal.querySelector('#mcpAuth');
+    const keyParamEl = modal.querySelector('#mcpKeyParam');
+    const paramField = modal.querySelector('#mcpKeyParamField');
+    const urlHint = modal.querySelector('#mcpUrlHint');
+    const tokenHint = modal.querySelector('#mcpTokenHint');
+    let userTouchedAuth = false;
+
+    const refreshHints = () => {
+      const split = splitKeyFromUrl(urlEl.value.trim());
+      if (urlHint) {
+        urlHint.textContent = split
+          ? '已从地址里识别到密钥（参数名 ' + split.param + '），不用再填密钥框'
+          : '带密钥的整段网址可以直接粘进来，会自动拆出来。';
+      }
+      if (tokenHint) {
+        tokenHint.textContent = split
+          ? '地址里已经带密钥，这里留空即可'
+          : '只填服务商给的那串字符：不要带 Bearer、引号、空格。';
+      }
+      if (split && !userTouchedAuth) {
+        authEl.value = 'query';
+        keyParamEl.value = split.param;
+      }
+      paramField.classList.toggle('hidden', authEl.value !== 'query');
+    };
+
+    urlEl.addEventListener('input', refreshHints);
+    urlEl.addEventListener('blur', () => {
+      const split = splitKeyFromUrl(urlEl.value.trim());
+      if (split && !userTouchedAuth) {
+        urlEl.value = split.cleanUrl;
+        if (!tokenEl.value.trim()) tokenEl.value = split.key;
+      }
+      refreshHints();
+    });
+    authEl.addEventListener('change', () => {
+      userTouchedAuth = true;
+      paramField.classList.toggle('hidden', authEl.value !== 'query');
+    });
+    refreshHints();
+
     const helpBtn = modal.querySelector('#mcpHelp');
     if (helpBtn) helpBtn.addEventListener('click', () => openLingxingHelp(true));
     const keyField = modal.querySelector('#mcpKeyParamField');
@@ -690,14 +755,34 @@
           throw new Error('附加 Headers 不是合法 JSON');
         }
       }
+      let url = modal.querySelector('#mcpUrl').value.trim();
+      let token = modal.querySelector('#mcpToken').value.trim();
+      let authMode = modal.querySelector('#mcpAuth').value;
+      let keyParam = modal.querySelector('#mcpKeyParam').value.trim() || 'key';
+
+      // 地址里带密钥 → 拆成「干净地址 + 密钥」，统一存一份
+      const split = splitKeyFromUrl(url);
+      if (split && !userTouchedAuth) {
+        url = split.cleanUrl;
+        keyParam = split.param;
+        if (!token) token = split.key;
+        authMode = 'query';
+      }
+      // 没拆到、又填了密钥 → 按「密钥在框里」处理
+      if (!split && token && authMode === 'query') {
+        authMode = 'bearer';
+      }
+      if (!url) throw new Error('MCP 地址不能为空');
+      if (!token && authMode !== 'query') throw new Error('密钥不能为空');
+
       return {
         id: s.id || undefined,
         preset: s.preset || 'custom',
         name: modal.querySelector('#mcpName').value.trim() || 'MCP',
-        url: modal.querySelector('#mcpUrl').value.trim(),
-        authMode: modal.querySelector('#mcpAuth').value,
-        token: modal.querySelector('#mcpToken').value.trim(),
-        keyParam: modal.querySelector('#mcpKeyParam').value.trim() || 'key',
+        url,
+        authMode,
+        token,
+        keyParam,
         headers,
         enabled: modal.querySelector('#mcpEnabled').checked,
       };
@@ -760,30 +845,20 @@
   function openLingxingHelp(fromConfig) {
     const url = 'https://openmcp.lingxing.com/mcp-servers/lingxing-mcp';
     const html =
-      '<div class="modal-head"><div><h2>领星 MCP 怎么填</h2>' +
-      '<p>只要填对两个格子：MCP 地址、访问密钥。认证方式选哪个都行（实测两种都通）。</p></div>' +
+      '<div class="modal-head"><div><h2>领星怎么填</h2><p>两个格子，粘完点「保存并测试」。</p></div>' +
       '<button class="modal-close" data-close type="button">×</button></div>' +
       '<div class="mcp-help">' +
       '<div class="mcp-help-row"><div class="mcp-help-k">MCP 地址</div><div class="mcp-help-v">' +
       '<code id="lingxingHelpUrl">' + esc(url) + '</code>' +
       '<button class="link-btn" data-copy-target="lingxingHelpUrl" type="button">复制</button>' +
-      '<small>原样复制，末尾不要自己加 /mcp。</small></div></div>' +
-      '<div class="mcp-help-row"><div class="mcp-help-k">访问令牌 / Key</div><div class="mcp-help-v">' +
-      '<code>填领星页面复制的「访问密钥」</code>' +
-      '<small><b>这一格必须填</b>，而且不要带 Bearer 前缀。周报这类技能就是从这里取 Key 的；留空就只能聊天用、跑不了脚本。</small></div></div>' +
-      '<div class="mcp-help-row"><div class="mcp-help-k">认证方式</div><div class="mcp-help-v">' +
-      '<code>Bearer Token</code> 或 <code>自定义 Headers</code> 都可以' +
-      '<small>选哪个都能连上（后端发的都是 Authorization: Bearer）。选「自定义 Headers」时，下面的 Headers 框留 <code>{}</code> 就行。</small></div></div>' +
-      '<div class="mcp-help-row"><div class="mcp-help-k">附加 Headers</div><div class="mcp-help-v">' +
-      '<code>留空：{}</code>' +
-      '<small>领星也接受 <code>{"X-Mcp-Key":"你的密钥"}</code> 这种写法，但那样「访问令牌」就别再填了——两边都填反而容易搞混。推荐只用「访问令牌」。</small></div></div>' +
-      '<div class="mcp-help-row"><div class="mcp-help-k">启用</div><div class="mcp-help-v">' +
-      '<code>勾选「启用这个数据源」</code>' +
-      '<small>保存后点「保存并测试」，成功会显示工具数量（领星是 4 个：help / search / action / approval_status）。</small></div></div>' +
+      '<small>原样粘贴，末尾别自己加 /mcp。</small></div></div>' +
+      '<div class="mcp-help-row"><div class="mcp-help-k">密钥</div><div class="mcp-help-v">' +
+      '<code>粘贴领星给你的那串字符</code>' +
+      '<small>只填那串字符本身：<b>不要带 Bearer、引号、空格</b>，也不要把「访问密钥：」这种标签一起粘进来。</small></div></div>' +
       '</div>' +
-      '<div class="mcp-help-note"><b>在领星哪里找：</b>领星后台 → AI 助手 → MCP，页面上有「服务器地址」和「访问密钥」，复制这两样就行。<br>' +
-      '<b>返回「MCP Key无效或已失效」：</b>说明密钥不完整或没带上，重新复制一次（64 位，不要带空格）。<br>' +
-      '<b>聊天能用、周报说没配置：</b>八成是 Key 填在了「附加 Headers」而不是「访问令牌」——脚本只认「访问令牌」和 Header 里能识别的键名，最省事就是填在访问令牌。</div>' +
+      '<div class="mcp-help-note"><b>成功的样子：</b>弹窗底部出现「连接成功，读取到 4 个工具」，卡片变「已连接」。<br>' +
+      '<b>返回「MCP Key无效」：</b>密钥不完整，重新复制一次（64 位）。<br>' +
+      '<b>其他服务商：</b>如果给你的是一条<b>带密钥的网址</b>（形如 <code>...?key=xxx</code>），直接把整条粘进「MCP 地址」就行，密钥框留空——会自动拆出来。</div>' +
       '<div class="modal-actions">' +
       (fromConfig ? '' : '<button class="btn" id="lingxingGo" type="button">去配置</button>') +
       '<button class="btn primary" data-close type="button">知道了</button></div>';
