@@ -691,6 +691,15 @@
 
     const refreshHints = () => {
       const split = splitKeyFromUrl(urlEl.value.trim());
+      // 网址里带密钥 → 立刻回填密钥框（用户自己改过就不动）
+      if (split && (!tokenEl.value.trim() || tokenEl.dataset.autoKey === '1')) {
+        tokenEl.value = split.key;
+        tokenEl.dataset.autoKey = '1';
+      }
+      if (!split && tokenEl.dataset.autoKey === '1') {
+        tokenEl.value = '';
+        delete tokenEl.dataset.autoKey;
+      }
       if (urlHint) {
         urlHint.textContent = split
           ? '已从地址里识别到密钥（参数名 ' + split.param + '），不用再填密钥框'
@@ -708,13 +717,11 @@
       paramField.classList.toggle('hidden', authEl.value !== 'query');
     };
 
+    tokenEl.addEventListener('input', () => {
+      delete tokenEl.dataset.autoKey;
+    });
     urlEl.addEventListener('input', refreshHints);
     urlEl.addEventListener('blur', () => {
-      const split = splitKeyFromUrl(urlEl.value.trim());
-      if (split && !userTouchedAuth) {
-        urlEl.value = split.cleanUrl;
-        if (!tokenEl.value.trim()) tokenEl.value = split.key;
-      }
       refreshHints();
     });
     authEl.addEventListener('change', () => {
@@ -725,16 +732,6 @@
 
     const helpBtn = modal.querySelector('#mcpHelp');
     if (helpBtn) helpBtn.addEventListener('click', () => openLingxingHelp(true));
-    const keyField = modal.querySelector('#mcpKeyParamField');
-    const tokenLabel = modal.querySelector('#mcpTokenLabel');
-    const syncAuth = () => {
-      const mode = modal.querySelector('#mcpAuth').value;
-      keyField.classList.toggle('hidden', mode !== 'query');
-      tokenLabel.textContent = mode === 'query' ? 'URL 参数 Key' : '访问令牌 / Key';
-    };
-    modal.querySelector('#mcpAuth').addEventListener('change', syncAuth);
-    syncAuth();
-
     const renderTools = (tools) => {
       const box = modal.querySelector('#mcpTools');
       if (!tools || !tools.length) {
