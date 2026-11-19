@@ -761,28 +761,29 @@
     const url = 'https://openmcp.lingxing.com/mcp-servers/lingxing-mcp';
     const html =
       '<div class="modal-head"><div><h2>领星 MCP 怎么填</h2>' +
-      '<p>领星用自定义 Header 认证，不是 Bearer Token，也不是 URL 参数 key。</p></div>' +
+      '<p>只要填对两个格子：MCP 地址、访问密钥。认证方式选哪个都行（实测两种都通）。</p></div>' +
       '<button class="modal-close" data-close type="button">×</button></div>' +
       '<div class="mcp-help">' +
       '<div class="mcp-help-row"><div class="mcp-help-k">MCP 地址</div><div class="mcp-help-v">' +
       '<code id="lingxingHelpUrl">' + esc(url) + '</code>' +
       '<button class="link-btn" data-copy-target="lingxingHelpUrl" type="button">复制</button>' +
-      '<small>原样填写，不要自己在末尾加 /mcp。</small></div></div>' +
-      '<div class="mcp-help-row"><div class="mcp-help-k">认证方式</div><div class="mcp-help-v">' +
-      '<code>自定义 Headers</code>' +
-      '<small>不要选 Bearer Token，也不要选 URL 参数 key。</small></div></div>' +
+      '<small>原样复制，末尾不要自己加 /mcp。</small></div></div>' +
       '<div class="mcp-help-row"><div class="mcp-help-k">访问令牌 / Key</div><div class="mcp-help-v">' +
-      '<code>留空</code>' +
-      '<small>填在这里会额外发送 Authorization: Bearer，领星会认不出来。</small></div></div>' +
+      '<code>填领星页面复制的「访问密钥」</code>' +
+      '<small><b>这一格必须填</b>，而且不要带 Bearer 前缀。周报这类技能就是从这里取 Key 的；留空就只能聊天用、跑不了脚本。</small></div></div>' +
+      '<div class="mcp-help-row"><div class="mcp-help-k">认证方式</div><div class="mcp-help-v">' +
+      '<code>Bearer Token</code> 或 <code>自定义 Headers</code> 都可以' +
+      '<small>选哪个都能连上（后端发的都是 Authorization: Bearer）。选「自定义 Headers」时，下面的 Headers 框留 <code>{}</code> 就行。</small></div></div>' +
       '<div class="mcp-help-row"><div class="mcp-help-k">附加 Headers</div><div class="mcp-help-v">' +
-      '<code id="lingxingHelpHeaders">{"X-Mcp-Key":"你的访问密钥"}</code>' +
-      '<button class="link-btn" data-copy-target="lingxingHelpHeaders" type="button">复制</button>' +
-      '<small>把「你的访问密钥」换成领星页面复制的那串，不要带 Bearer 前缀。</small></div></div>' +
+      '<code>留空：{}</code>' +
+      '<small>领星也接受 <code>{"X-Mcp-Key":"你的密钥"}</code> 这种写法，但那样「访问令牌」就别再填了——两边都填反而容易搞混。推荐只用「访问令牌」。</small></div></div>' +
       '<div class="mcp-help-row"><div class="mcp-help-k">启用</div><div class="mcp-help-v">' +
       '<code>勾选「启用这个数据源」</code>' +
-      '<small>保存后点「保存并测试」，测试成功会显示读到的工具数量和工具名。</small></div></div>' +
+      '<small>保存后点「保存并测试」，成功会显示工具数量（领星是 4 个：help / search / action / approval_status）。</small></div></div>' +
       '</div>' +
-      '<div class="mcp-help-note"><b>在领星哪里找：</b>领星 MCP 页面里的「服务器地址」「请求头名称」「访问密钥」。请求头名称就是 <code>X-Mcp-Key</code>。如果返回 401/403，先检查 Key 是否复制完整、地址是否多了或少了后缀。</div>' +
+      '<div class="mcp-help-note"><b>在领星哪里找：</b>领星后台 → AI 助手 → MCP，页面上有「服务器地址」和「访问密钥」，复制这两样就行。<br>' +
+      '<b>返回「MCP Key无效或已失效」：</b>说明密钥不完整或没带上，重新复制一次（64 位，不要带空格）。<br>' +
+      '<b>聊天能用、周报说没配置：</b>八成是 Key 填在了「附加 Headers」而不是「访问令牌」——脚本只认「访问令牌」和 Header 里能识别的键名，最省事就是填在访问令牌。</div>' +
       '<div class="modal-actions">' +
       (fromConfig ? '' : '<button class="btn" id="lingxingGo" type="button">去配置</button>') +
       '<button class="btn primary" data-close type="button">知道了</button></div>';

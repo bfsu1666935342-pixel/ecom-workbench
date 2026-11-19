@@ -96,15 +96,16 @@ function envFromMcp(dataDir) {
 
   const fromHeaders = (headers) => {
     if (!headers || typeof headers !== 'object') return '';
-    for (const key of Object.keys(headers)) {
-      const lower = key.toLowerCase();
-      if (lower === 'authorization') {
-        return String(headers[key] || '').replace(/^Bearer\s+/i, '').trim();
-      }
-      if (lower === 'x-api-key' || lower === 'x-auth-token' || lower === 'api-key') {
-        return String(headers[key] || '').trim();
-      }
+    const entries = Object.entries(headers).map(([k, v]) => [String(k).toLowerCase(), String(v || '').trim()]);
+    // 明确的键名优先
+    const preferred = ['x-mcp-key', 'x-api-key', 'x-auth-token', 'api-key', 'authorization', 'mcp-key', 'key', 'token'];
+    for (const name of preferred) {
+      const hit = entries.find(([k]) => k === name);
+      if (hit && hit[1]) return name === 'authorization' ? hit[1].replace(/^Bearer\s+/i, '').trim() : hit[1];
     }
+    // 兜底：名字里带 key / token / auth 的任意头（例如 X-Mcp-Key、X-Lingxing-Key）
+    const loose = entries.find(([k, v]) => v && /key|token|auth/.test(k));
+    if (loose) return loose[0] === 'authorization' ? loose[1].replace(/^Bearer\s+/i, '').trim() : loose[1];
     return '';
   };
 
