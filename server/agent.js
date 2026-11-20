@@ -221,6 +221,9 @@ async function runTurn(opts) {
 
   const newApi = [userApi];
   const newUi = [userUi];
+  // 技能如果声明了固定产出结构，就让模型交卷前自己过一遍
+  const outputGuard = (skill && skill.meta && skill.meta.outputGuard) || null;
+
   // 本次会话允许"提案改配置"的技能：声明了 configFiles 的，且属于当前员工或当前技能
   const configSkills = (opts.skills || []).filter((s) => {
   if (!s.meta || !Array.isArray(s.meta.configFiles) || !s.meta.configFiles.length) return false;
@@ -256,6 +259,7 @@ async function runTurn(opts) {
     skills: opts.skills || [],
     allowedSkills: agent ? agent.skills || [] : null,
     configSkills,
+    outputGuard,
     noReportFiles: Boolean(skill && skill.runOnly),
     skillTitle: skill ? skill.title : '',
     emit: (ev) => {
@@ -271,7 +275,7 @@ async function runTurn(opts) {
     },
   });
   const tools = [
-    ...toolDefs({ search: Boolean(options.search), agentSkills: agent ? agent.skills : null, configSkills }),
+    ...toolDefs({ search: Boolean(options.search), agentSkills: agent ? agent.skills : null, configSkills, outputGuard }),
     ...mcpDefs,
   ];
   const model =
@@ -343,6 +347,23 @@ async function runTurn(opts) {
 
       if (!res.toolCalls.length) {
         finished = true;
+        // 技能声明了固定结构，但模型没调用 check_output 或没通过 → 明确提示
+        const activeGuard = runner.outputGuard || outputGuard;
+        if (activeGuard && !runner.outputGuardPassed) {
+          const guardResult = require('./outputguard').check(activeGuard, uiAssistant.text);
+          if (!guardResult.ok) {
+            const lines = [];
+            if (guardResult.missing.length) lines.push('缺少：' + guardResult.missing.join('、'));
+            if (guardResult.problems.length) lines.push(...guardResult.problems);
+            emit({
+              t: 'notice',
+              message:
+                '这份「' + (activeGuard.name || '产出') + '」结构不完整：' +
+                lines.join('；') +
+                '。可以说「按模板重做一遍」让它补齐。',
+            });
+          }
+        }
         break;
       }
 

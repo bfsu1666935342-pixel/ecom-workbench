@@ -7,6 +7,7 @@ const llm = require('./llm');
 const { ensureDir, inside, uid, formatBytes } = require('./util');
 const skillconfig = require('./skillconfig');
 const proposals = require('./proposals');
+const outputguard = require('./outputguard');
 
 const MAX_TOOL_RESULT = 60000;
 
@@ -73,6 +74,25 @@ function toolDefs(opts = {}) {
       },
     });
   }
+  if (opts.outputGuard) {
+    defs.push({
+      type: 'function',
+      function: {
+        name: 'check_output',
+        description:
+          '交卷前检查产出结构：把你要给用户的完整内容原样传进来，返回缺哪些章节、哪节不合格。' +
+          '不合格就按提示补全后重新调用，直到返回通过为止。这个技能要求必须通过才能收尾。',
+        parameters: {
+          type: 'object',
+          properties: {
+            content: { type: 'string', description: '完整的产出内容（Markdown 全文）' },
+          },
+          required: ['content'],
+        },
+      },
+    });
+  }
+
   if (Array.isArray(opts.configSkills) && opts.configSkills.length) {
     defs.push({
       type: 'function',
@@ -194,12 +214,14 @@ function toolDefs(opts = {}) {
 }
 
 class ToolRunner {
-  constructor({ workspace, dataDir, apiKey, baseUrl, emit, mcp, noReportFiles, skillTitle, skills, allowedSkills, configSkills }) {
+  constructor({ workspace, dataDir, apiKey, baseUrl, emit, mcp, noReportFiles, skillTitle, skills, allowedSkills, configSkills, outputGuard }) {
     this.noReportFiles = Boolean(noReportFiles);
     this.skillTitle = String(skillTitle || '');
     this.skills = Array.isArray(skills) ? skills : [];
     this.allowedSkills = Array.isArray(allowedSkills) ? allowedSkills : null;
     this.configSkills = Array.isArray(configSkills) ? configSkills : [];
+    this.outputGuard = outputGuard || null;
+    this.outputGuardPassed = false;
     this.workspace = workspace;
     this.dataDir = dataDir;
     this.apiKey = apiKey;
@@ -229,6 +251,8 @@ class ToolRunner {
           return this.listFiles(args);
         case 'update_skill_config':
           return this.updateSkillConfig(args);
+        case 'check_output':
+          return this.checkOutput(args);
         case 'load_skill':
           return this.loadSkill(args);
         case 'read_file':
@@ -366,6 +390,16 @@ class ToolRunner {
     };
   }
 
+  checkOutput(args) {
+    const guard = this.outputGuard;
+    if (!guard) return { ok: true, content: '这个技能没有结构要求。' };
+    const text = String(args.content || '');
+    if (!text.trim()) return { ok: false, content: 'content 是空的，把完整产出传进来。' };
+    const result = outputguard.check(guard, text);
+    this.outputGuardPassed = result.ok;
+    return { ok: true, content: outputguard.describe(guard, result) };
+  }
+
   loadSkill(args) {
     const id = String(args.id || '').trim();
     if (!id) return { ok: false, content: '缺少技能 id' };
@@ -374,6 +408,11 @@ class ToolRunner {
     }
     const skill = (this.skills || []).find((s) => s.id === id);
     if (!skill) return { ok: false, content: '没有这个技能：' + id };
+    // 装载的技能如果声明了固定产出结构，从这个回合起启用检查
+    if (skill.meta && skill.meta.outputGuard) {
+      this.outputGuard = skill.meta.outputGuard;
+      this.outputGuardPassed = false;
+    }
 const cmds = skill.meta && Array.isArray(skill.meta.commands) ? skill.meta.commands : [];
     const cmdBlock = cmds.length
       ? '\n\n## 这个技能的「直接运行」按钮\n用户在工作台里点按钮执行，你只引用按钮名字，不要贴命令行：\n' +
