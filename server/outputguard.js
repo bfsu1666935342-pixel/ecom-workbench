@@ -97,6 +97,14 @@ function check(guard, text, opts = {}) {
     if (section.minRows && items.tableRows < section.minRows) {
       problems.push('「' + section.label + '」至少要 ' + section.minRows + ' 行，现在 ' + items.tableRows + ' 行');
     }
+    // 必须出现的关键词（比如 FBA/FBM 两列都得有）
+    if (Array.isArray(section.requireText)) {
+      const bodyText = norm(found.body);
+      const lacks = section.requireText.filter((word) => !bodyText.includes(norm(word)));
+      if (lacks.length) {
+        problems.push('「' + section.label + '」里找不到：' + lacks.join('、'));
+      }
+    }
   }
   return { ok: missing.length === 0 && problems.length === 0, checked: true, missing, problems, skipped };
 }
