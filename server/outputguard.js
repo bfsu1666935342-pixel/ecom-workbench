@@ -63,13 +63,23 @@ function countItems(body) {
   return { tableRows: Math.max(0, tableRows), bullets, sawTable };
 }
 
-function check(guard, text) {
+function check(guard, text, opts = {}) {
   if (!guard || !Array.isArray(guard.sections) || !guard.sections.length) {
     return { ok: true, checked: false, missing: [], problems: [] };
   }
   const missing = [];
   const problems = [];
+  // 用户明确不要的章节：跳过检查（可选章节才允许跳）
+  const skip = new Set(
+    (Array.isArray(opts.skip) ? opts.skip : []).map((x) => norm(String(x || '')))
+  );
+  const skipped = [];
+
   for (const section of guard.sections) {
+    if (skip.has(norm(section.label)) || skip.has(norm(section.key))) {
+      skipped.push(section.label);
+      continue;
+    }
     const found = findSection(text, section.label);
     if (!found) {
       missing.push(section.label);
@@ -88,12 +98,13 @@ function check(guard, text) {
       problems.push('「' + section.label + '」至少要 ' + section.minRows + ' 行，现在 ' + items.tableRows + ' 行');
     }
   }
-  return { ok: missing.length === 0 && problems.length === 0, checked: true, missing, problems };
+  return { ok: missing.length === 0 && problems.length === 0, checked: true, missing, problems, skipped };
 }
 
 function describe(guard, result) {
   const name = (guard && guard.name) || '产出';
-  if (result.ok) return name + '结构检查通过。';
+  const skipped = result.skipped && result.skipped.length ? '（按要求跳过：' + result.skipped.join('、') + '）' : '';
+  if (result.ok) return name + '结构检查通过。' + skipped;
   const parts = [];
   if (result.missing.length) parts.push('缺少章节：' + result.missing.join('、'));
   if (result.problems.length) parts.push(...result.problems);

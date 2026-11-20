@@ -86,6 +86,11 @@ function toolDefs(opts = {}) {
           type: 'object',
           properties: {
             content: { type: 'string', description: '完整的产出内容（Markdown 全文）' },
+            skip: {
+              type: 'array',
+              description: '用户明确不要的章节名，例如 ["广告审计","站外痕迹"]。只对可选章节有效',
+              items: { type: 'string' },
+            },
           },
           required: ['content'],
         },
@@ -395,7 +400,7 @@ class ToolRunner {
     if (!guard) return { ok: true, content: '这个技能没有结构要求。' };
     const text = String(args.content || '');
     if (!text.trim()) return { ok: false, content: 'content 是空的，把完整产出传进来。' };
-    const result = outputguard.check(guard, text);
+    const result = outputguard.check(guard, text, { skip: Array.isArray(args.skip) ? args.skip : [] });
     this.outputGuardPassed = result.ok;
     return { ok: true, content: outputguard.describe(guard, result) };
   }
