@@ -62,6 +62,8 @@
       toggleWelcome();
       setTimeout(() => checkUpdateSilently(), 2500);
       showView('chat');
+      placeNavGlass(false);
+      window.addEventListener('resize', () => scheduleNavGlass(false));
       if (!state.settings.key) showOnboarding();
     } catch (err) {
       document.body.innerHTML =
@@ -467,6 +469,118 @@
     updateSkillUI();
     if (input) input.focus();
   }
+  // ---------------- 导航玻璃胶囊 ----------------
+
+  const navGlassState = { last: null, raf: 0 };
+
+  function navGlassPrefersReduced() {
+    try {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      return false;
+    }
+  }
+
+  function placeNavGlass(animate) {
+    const el = document.getElementById('navGlass');
+    const nav = document.getElementById('sideNav');
+    if (!el || !nav) return;
+    const active = nav.querySelector('.nav-item.active');
+    if (!active) {
+      el.classList.remove('ready');
+      navGlassState.last = null;
+      return;
+    }
+    const navRect = nav.getBoundingClientRect();
+    const rect = active.getBoundingClientRect();
+    const next = {
+      x: Math.round(rect.left - navRect.left),
+      y: Math.round(rect.top - navRect.top),
+      w: Math.round(rect.width),
+      h: Math.round(rect.height),
+    };
+    const last = navGlassState.last;
+
+    el.style.width = next.w + 'px';
+    el.style.height = next.h + 'px';
+    el.style.transform = 'translate3d(' + next.x + 'px, ' + next.y + 'px, 0)';
+    el.classList.add('ready');
+
+    if (animate && last && (last.x !== next.x || last.y !== next.y) && !navGlassPrefersReduced()) {
+      const dx = next.x - last.x;
+      const dy = next.y - last.y;
+      const vertical = Math.abs(dy) >= Math.abs(dx);
+      const dist = vertical ? Math.abs(dy) : Math.abs(dx);
+      const size = vertical ? last.h : last.w;
+      const stretch = 1 + Math.min(0.28, (dist / Math.max(40, size)) * 0.28);
+
+      // 锚在出发那一侧：往下走钉住上边，往右走钉住左边
+      el.style.transformOrigin = vertical
+        ? dy > 0
+          ? '50% 0%'
+          : '50% 100%'
+        : dx > 0
+          ? '0% 50%'
+          : '100% 50%';
+
+      const sx = vertical ? 1 : stretch;
+      const sy = vertical ? stretch : 1;
+      const frames = [
+        {
+          transform: 'translate3d(' + last.x + 'px, ' + last.y + 'px, 0) scale(1, 1)',
+          width: last.w + 'px',
+          height: last.h + 'px',
+          offset: 0,
+        },
+        {
+          transform: 'translate3d(' + next.x + 'px, ' + next.y + 'px, 0) scale(' + sx + ', ' + sy + ')',
+          width: next.w + 'px',
+          height: next.h + 'px',
+          offset: 0.62,
+        },
+        {
+          transform:
+            'translate3d(' +
+            next.x +
+            'px, ' +
+            next.y +
+            'px, 0) scale(' +
+            (vertical ? 1 : 0.965) +
+            ', ' +
+            (vertical ? 0.965 : 1) +
+            ')',
+          width: next.w + 'px',
+          height: next.h + 'px',
+          offset: 0.82,
+        },
+        {
+          transform: 'translate3d(' + next.x + 'px, ' + next.y + 'px, 0) scale(1, 1)',
+          width: next.w + 'px',
+          height: next.h + 'px',
+          offset: 1,
+        },
+      ];
+      try {
+        const anim = el.animate(frames, { duration: 470, easing: 'cubic-bezier(.22,.9,.32,1)' });
+        anim.onfinish = () => {
+          el.style.transformOrigin = '';
+        };
+      } catch {
+        /* 不支持 WAAPI 就直接落位 */
+      }
+    }
+
+    navGlassState.last = next;
+  }
+
+  function scheduleNavGlass(animate = true) {
+    if (navGlassState.raf) cancelAnimationFrame(navGlassState.raf);
+    navGlassState.raf = requestAnimationFrame(() => {
+      navGlassState.raf = 0;
+      placeNavGlass(animate);
+    });
+  }
+
   function showView(view) {
     state.view = view;
     $('#chatView').classList.toggle('hidden', view !== 'chat');
@@ -474,6 +588,7 @@
     $('#agentsView').classList.toggle('hidden', view !== 'agents');
     $('#mcpView').classList.toggle('hidden', view !== 'mcp');
     $$('.nav-item').forEach((btn) => btn.classList.toggle('active', btn.dataset.view === view));
+    scheduleNavGlass();
     if (view === 'chat') {
       $('#chatTitle').textContent = state.session && state.session.title ? state.session.title : '新对话';
       updateSkillUI();
