@@ -49,6 +49,11 @@
           <span>数据源</span>
           <span class="nav-count" id="navMcpCount">0</span>
         </button>
+        <button class="nav-item" type="button" data-view="outputs">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3.5 7.2c0-.9.7-1.6 1.6-1.6h4l1.7 2h7.1c.9 0 1.6.7 1.6 1.6v8.6c0 .9-.7 1.6-1.6 1.6H5.1c-.9 0-1.6-.7-1.6-1.6V7.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 13.6h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span>内容产出</span>
+          <span class="nav-count" id="navOutputCount">0</span>
+        </button>
       </nav>
 
       <div class="side-scroll">
@@ -177,6 +182,30 @@
           </div>
           <div class="mcp-grid" id="mcpList"></div>
           <p class="mcp-note">地址、Key 和 Headers 只保存在本机 data/mcp.json，不会发给模型。配置后点「测试连接」读取工具列表。</p>
+        </div>
+      </section>
+
+      <section class="view page-view hidden" id="outputsView">
+        <div class="page-inner">
+          <div class="page-head outputs-head">
+            <div>
+              <h1>内容产出</h1>
+              <p>技能生成的文件都在这里，按技能分组、最新的排最前。点一行直接打开，或下载到本地。</p>
+            </div>
+            <div class="outputs-actions">
+              <button class="btn" id="outputsRefresh" type="button">刷新</button>
+              <button class="btn" id="outputsFolder" type="button">打开工作区文件夹</button>
+            </div>
+          </div>
+          <div class="skills-toolbar">
+            <label class="search-field">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <input id="outputSearch" type="search" placeholder="搜索文件名或技能" autocomplete="off">
+            </label>
+            <button class="filter active" id="outputOnlyDocs" type="button">只看报告</button>
+            <div class="filter-bar" id="outputFilters"></div>
+          </div>
+          <div class="skill-index" id="outputList"></div>
         </div>
       </section>
     </main>

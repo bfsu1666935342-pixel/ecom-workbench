@@ -497,6 +497,53 @@ function createApi(ctx) {
       return handleChat(req, res);
     }
 
+    if (pathname === '/api/outputs' && req.method === 'GET') {
+      const limit = Math.min(Number(url.searchParams.get('limit')) || 300, 800);
+      const items = [];
+      const walk = (dir, base, depth) => {
+        if (depth > 4 || items.length > limit * 3) return;
+        let entries;
+        try {
+          entries = fs.readdirSync(dir, { withFileTypes: true });
+        } catch {
+          return;
+        }
+        for (const entry of entries) {
+          const name = entry.name;
+          if (name.startsWith('.') || name === 'node_modules' || /^_?tmp/i.test(name)) continue;
+          const abs = path.join(dir, name);
+          const rel = base ? base + '/' + name : name;
+          if (entry.isDirectory()) {
+            walk(abs, rel, depth + 1);
+            continue;
+          }
+          if (!entry.isFile()) continue;
+          let stat;
+          try {
+            stat = fs.statSync(abs);
+          } catch {
+            continue;
+          }
+          const parts = rel.split('/');
+          let group = '工作区';
+          if (parts[0] === '技能产出') group = parts[1] || '技能产出';
+          else if (parts.length > 1) group = parts[0];
+          items.push({
+            rel,
+            name,
+            group,
+            size: stat.size,
+            mtime: stat.mtimeMs,
+            ext: (path.extname(name) || '').replace('.', '').toLowerCase(),
+          });
+        }
+      };
+      walk(store.workspace, '', 0);
+      items.sort((a, b) => b.mtime - a.mtime);
+      sendJson(res, 200, { items: items.slice(0, limit), total: items.length });
+      return true;
+    }
+
     if (pathname === '/api/file' && req.method === 'GET') {
       const rel = url.searchParams.get('path') || '';
       let abs;

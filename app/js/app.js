@@ -26,6 +26,8 @@
     view: 'chat',
     mcp: { servers: [], connected: 0, toolCount: 0 },
     skillFilter: { q: '', group: '全部' },
+    outputFilter: { q: '', group: '全部', onlyDocs: true },
+    outputs: { items: [], total: 0, loaded: false },
     settings: {
       key: '',
       model: '',
@@ -184,6 +186,154 @@
         renderSkillsPage();
       });
       box.append(btn);
+    }
+  }
+
+  async function loadOutputs(force) {
+    if (state.outputs.loaded && !force) return;
+    try {
+      const resp = await fetch('/api/outputs');
+      const data = await resp.json();
+      state.outputs.items = Array.isArray(data.items) ? data.items : [];
+      state.outputs.total = Number(data.total) || state.outputs.items.length;
+      state.outputs.loaded = true;
+    } catch {
+      state.outputs.items = [];
+      state.outputs.total = 0;
+    }
+    const badge = $('#navOutputCount');
+    if (badge) badge.textContent = String(state.outputs.total);
+    renderOutputFilters();
+    renderOutputsPage();
+  }
+
+  function fmtSize(bytes) {
+    const n = Number(bytes) || 0;
+    if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+    if (n >= 1024) return Math.round(n / 1024) + ' KB';
+    return n + ' B';
+  }
+
+  function fmtWhen(ms) {
+    const d = new Date(Number(ms) || 0);
+    if (!d.getTime()) return '';
+    const pad = (x) => String(x).padStart(2, '0');
+    return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function renderOutputFilters() {
+    const box = $('#outputFilters');
+    if (!box) return;
+    const groups = [];
+    for (const item of state.outputs.items) {
+      if (!groups.includes(item.group)) groups.push(item.group);
+    }
+    box.innerHTML = '';
+    for (const name of ['全部', ...groups]) {
+      const btn = document.createElement('button');
+      btn.className = 'filter' + (state.outputFilter.group === name ? ' active' : '');
+      btn.type = 'button';
+      btn.textContent = name;
+      btn.addEventListener('click', () => {
+        state.outputFilter.group = name;
+        renderOutputFilters();
+        renderOutputsPage();
+      });
+      box.append(btn);
+    }
+  }
+
+  function renderOutputsPage() {
+    const box = $('#outputList');
+    if (!box) return;
+    const q = state.outputFilter.q.trim().toLowerCase();
+    const group = state.outputFilter.group;
+    const groups = new Map();
+    const DOC_EXT = new Set(['html', 'htm', 'md', 'docx', 'doc', 'pdf', 'xlsx', 'xls', 'csv', 'txt', 'png', 'jpg', 'jpeg']);
+    const RANK = { html: 0, md: 1, docx: 2, pdf: 3, xlsx: 4, csv: 5, png: 6, jpg: 6, jpeg: 6, txt: 7 };
+    for (const item of state.outputs.items) {
+      if (state.outputFilter.onlyDocs && !DOC_EXT.has(item.ext)) continue;
+      if (group !== '全部' && item.group !== group) continue;
+      if (q) {
+        const hay = (item.name + ' ' + item.rel + ' ' + item.group).toLowerCase();
+        if (!hay.includes(q)) continue;
+      }
+      if (!groups.has(item.group)) groups.set(item.group, []);
+      groups.get(item.group).push(item);
+    }
+    for (const list of groups.values()) {
+      list.sort((a, b) => {
+        const ra = RANK[a.ext] === undefined ? 99 : RANK[a.ext];
+        const rb = RANK[b.ext] === undefined ? 99 : RANK[b.ext];
+        if (ra !== rb) return ra - rb;
+        return b.mtime - a.mtime;
+      });
+    }
+    box.innerHTML = '';
+    if (!groups.size) {
+      const empty = document.createElement('div');
+      empty.className = 'skill-empty';
+      empty.textContent = state.outputs.loaded
+        ? (state.outputFilter.onlyDocs ? '没有报告类产出。点「全部文件」看原始数据。' : '还没有产出。跑一次技能（比如周报）后，文件会出现在这里。')
+        : '正在读取工作区……';
+      box.append(empty);
+      return;
+    }
+    for (const [name, items] of groups) {
+      const section = document.createElement('section');
+      section.className = 'index-group';
+      const head = document.createElement('div');
+      head.className = 'index-head';
+      head.innerHTML = '<span>' + esc(name) + '</span><span class="index-count">' + items.length + '</span>';
+      section.append(head);
+      for (const item of items) {
+        const row = document.createElement('div');
+        row.className = 'output-row';
+
+        const main = document.createElement('button');
+        main.className = 'output-main';
+        main.type = 'button';
+        main.title = item.rel;
+        main.innerHTML =
+          '<span class="output-name">' + esc(item.name) + '</span>' +
+          '<span class="output-meta">' + fmtSize(item.size) + ' · ' + fmtWhen(item.mtime) + '</span>';
+        main.addEventListener('click', () => {
+          window.open('/api/file?path=' + encodeURIComponent(item.rel), '_blank', 'noopener');
+        });
+
+        const actions = document.createElement('span');
+        actions.className = 'output-actions';
+
+        const dl = document.createElement('button');
+        dl.type = 'button';
+        dl.textContent = '下载';
+        dl.addEventListener('click', () => {
+          const a = document.createElement('a');
+          a.href = '/api/file?download=1&path=' + encodeURIComponent(item.rel);
+          a.download = item.name;
+          a.click();
+        });
+
+        const locate = document.createElement('button');
+        locate.type = 'button';
+        locate.textContent = '位置';
+        locate.addEventListener('click', async () => {
+          try {
+            await fetch('/api/open', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ path: item.rel }),
+            });
+          } catch {
+            toast('打不开文件夹');
+          }
+        });
+
+        actions.append(dl, locate);
+        row.append(main, actions);
+        section.append(row);
+      }
+      box.append(section);
     }
   }
 
@@ -587,6 +737,7 @@
     $('#skillsView').classList.toggle('hidden', view !== 'skills');
     $('#agentsView').classList.toggle('hidden', view !== 'agents');
     $('#mcpView').classList.toggle('hidden', view !== 'mcp');
+    $('#outputsView').classList.toggle('hidden', view !== 'outputs');
     $$('.nav-item').forEach((btn) => btn.classList.toggle('active', btn.dataset.view === view));
     scheduleNavGlass();
     if (view === 'chat') {
@@ -601,10 +752,15 @@
       updateSkillUI();
       renderSkillFilters();
       renderSkillsPage();
-    } else {
+    } else if (view === 'mcp') {
       $('#chatTitle').textContent = '数据源';
       updateSkillUI();
       renderMcpPage();
+    } else {
+      $('#chatTitle').textContent = '内容产出';
+      updateSkillUI();
+      renderOutputsPage();
+      loadOutputs();
     }
     closeSidebar();
   }
@@ -2876,6 +3032,29 @@ if (skillPickBtn) {
     $('#skillSearch').addEventListener('input', (e) => {
       state.skillFilter.q = e.target.value;
       renderSkillsPage();
+    });
+    $('#outputSearch').addEventListener('input', (e) => {
+      state.outputFilter.q = e.target.value;
+      renderOutputsPage();
+    });
+    $('#outputOnlyDocs').addEventListener('click', () => {
+      state.outputFilter.onlyDocs = !state.outputFilter.onlyDocs;
+      const btn = $('#outputOnlyDocs');
+      btn.classList.toggle('active', state.outputFilter.onlyDocs);
+      btn.textContent = state.outputFilter.onlyDocs ? '只看报告' : '全部文件';
+      renderOutputsPage();
+    });
+    $('#outputsRefresh').addEventListener('click', () => loadOutputs(true));
+    $('#outputsFolder').addEventListener('click', async () => {
+      try {
+        await fetch('/api/open', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+      } catch {
+        toast('打不开文件夹');
+      }
     });
     $('#sendBtn').addEventListener('click', () => {
       if (state.streaming) {
