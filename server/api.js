@@ -507,8 +507,9 @@ let shopsCache = null; // 领星店铺列表缓存（10 分钟）
           return true;
         }
         if (body.title) session.title = String(body.title).slice(0, 80);
+        if (body.pinned !== undefined) session.pinned = Boolean(body.pinned);
         store.saveSession(session);
-        sendJson(res, 200, { ok: true, title: session.title });
+        sendJson(res, 200, { ok: true, title: session.title, pinned: Boolean(session.pinned) });
       } catch (err) {
         sendJson(res, err.status || 500, { error: friendlyError(err) });
       }

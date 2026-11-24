@@ -28,6 +28,7 @@
     skillFilter: { q: '', group: '全部' },
     outputFilter: { q: '', group: '全部', onlyDocs: true },
     outputs: { items: [], total: 0, loaded: false },
+    chatStick: true,
     shops: { items: [], loaded: false },
     settings: {
       key: '',
@@ -1171,25 +1172,175 @@
       title.className = 't';
       title.textContent = s.title || '新对话';
       title.title = (s.title || '') + ' · ' + timeAgo(s.updatedAt);
-      const del = document.createElement('button');
-      del.className = 'del';
-      del.type = 'button';
-      del.title = '删除对话';
-      del.textContent = '×';
-      del.addEventListener('click', async (e) => {
+      if (s.pinned) {
+        const pin = document.createElement('span');
+        pin.className = 'session-pin';
+        pin.title = '已置顶';
+        pin.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 4h6l-1 6 3.5 3.5H6.5L10 10 9 4Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 13.5V21" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+        item.append(pin);
+      }
+      const more = document.createElement('button');
+      more.className = 'more';
+      more.type = 'button';
+      more.title = '更多';
+      more.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/></svg>';
+      more.addEventListener('click', (e) => {
         e.stopPropagation();
-        const ok = await confirmDialog('删除这个对话？', '对话记录会从本机删除，已生成的文件不受影响。', true);
-        if (!ok) return;
-        await fetch('/api/session?id=' + encodeURIComponent(s.id), { method: 'DELETE' });
-        state.sessions = state.sessions.filter((x) => x.id !== s.id);
-        if (state.session && state.session.id === s.id) newChat();
-        renderSessions();
-        toast('已删除');
+        openSessionMenu(more, s);
       });
-      item.append(title, del);
+      item.append(title, more);
       item.addEventListener('click', () => openSession(s.id));
       box.append(item);
     }
+  }
+
+  let sessionMenuEl = null;
+
+  function closeSessionMenu() {
+    if (sessionMenuEl) {
+      sessionMenuEl.remove();
+      sessionMenuEl = null;
+    }
+  }
+
+  function openSessionMenu(anchorEl, s) {
+    closeSessionMenu();
+    const menu = document.createElement('div');
+    menu.className = 'session-menu';
+    const icon = {
+      edit: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M13.5 5.5 18 10" stroke="currentColor" stroke-width="1.5"/></svg>',
+      pin: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 4h6l-1 6 3.5 3.5H6.5L10 10 9 4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 13.5V21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+      del: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 7h14M9.5 7V5h5v2M7 7l1 13h8l1-13" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+    };
+    menu.innerHTML =
+      '<button type="button" data-act="rename">' + icon.edit + '编辑标题</button>' +
+      '<button type="button" data-act="pin">' + icon.pin + (s.pinned ? '取消置顶' : '置顶') + '</button>' +
+      '<button type="button" data-act="del" class="danger">' + icon.del + '删除</button>';
+    document.body.append(menu);
+    sessionMenuEl = menu;
+
+    const rect = anchorEl.getBoundingClientRect();
+    const mw = menu.offsetWidth || 148;
+    const mh = menu.offsetHeight || 120;
+    let left = rect.right - mw;
+    let top = rect.bottom + 6;
+    if (left < 8) left = 8;
+    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+    if (top + mh > window.innerHeight - 8) top = rect.top - mh - 6;
+    menu.style.left = left + 'px';
+    menu.style.top = Math.max(8, top) + 'px';
+
+    const close = (e) => {
+      if (e && menu.contains(e.target)) return;
+      closeSessionMenu();
+      document.removeEventListener('mousedown', close);
+    };
+    setTimeout(() => document.addEventListener('mousedown', close), 0);
+
+    menu.querySelector('[data-act="rename"]').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      close(null);
+      const name = await promptDialog('编辑标题', s.title || '');
+      if (name === null) return;
+      const clean = name.trim().slice(0, 80);
+      if (!clean || clean === s.title) return;
+      await fetch('/api/session', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: s.id, title: clean }),
+      });
+      s.title = clean;
+      if (state.session && state.session.id === s.id) state.session.title = clean;
+      if (state.view === 'chat') $('#chatTitle').textContent = state.session && state.session.id === s.id ? clean : $('#chatTitle').textContent;
+      renderSessions();
+      toast('标题已改');
+    });
+
+    menu.querySelector('[data-act="pin"]').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      close(null);
+      const next = !s.pinned;
+      await fetch('/api/session', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: s.id, pinned: next }),
+      });
+      s.pinned = next;
+      sortSessions();
+      renderSessions();
+      toast(next ? '已置顶' : '已取消置顶');
+    });
+
+    menu.querySelector('[data-act="del"]').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      close(null);
+      const ok = await confirmDialog('删除这个对话？', '对话记录会从本机删除，已生成的文件不受影响。', true);
+      if (!ok) return;
+      await fetch('/api/session?id=' + encodeURIComponent(s.id), { method: 'DELETE' });
+      state.sessions = state.sessions.filter((x) => x.id !== s.id);
+      if (state.session && state.session.id === s.id) newChat();
+      renderSessions();
+      toast('已删除');
+    });
+  }
+
+  function sortSessions() {
+    state.sessions.sort((a, b) => {
+      const pa = a.pinned ? 1 : 0;
+      const pb = b.pinned ? 1 : 0;
+      if (pa !== pb) return pb - pa;
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
+  }
+
+  function promptDialog(title, value) {
+    return new Promise((resolve) => {
+      const html =
+        '<div class="modal-head"><div><h2>' + esc(title) + '</h2></div></div>' +
+        '<div class="cfg-form"><input type="text" id="pdInput" value="' + esc(value || '') + '" maxlength="80" spellcheck="false"></div>' +
+        '<div class="modal-actions"><button class="btn ghost" data-close type="button">取消</button>' +
+        '<button class="btn primary" data-ok type="button">保存</button></div>';
+      const close = showModal(html, { narrow: true });
+      const modal = close.modal;
+      const input = modal.querySelector('#pdInput');
+      let settled = false;
+      const done = (v) => {
+        if (settled) return;
+        settled = true;
+        resolve(v);
+      };
+      setTimeout(() => {
+        input.focus();
+        input.select();
+      }, 30);
+      modal.querySelector('[data-ok]').addEventListener('click', () => {
+        const v = input.value;
+        close();
+        done(v);
+      });
+      modal.querySelector('[data-close]').addEventListener('click', () => {
+        close();
+        done(null);
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const v = input.value;
+          close();
+          done(v);
+        }
+        if (e.key === 'Escape') {
+          close();
+          done(null);
+        }
+      });
+      close.overlay.addEventListener('click', (e) => {
+        if (e.target === close.overlay) {
+          close();
+          done(null);
+        }
+      });
+    });
   }
 
   function upsertSession(session, title) {
@@ -1285,7 +1436,7 @@
     const body = document.createElement('div');
     body.className = 'msg-body';
 
-    const refs = { wrap, body };
+    const refs = { wrap, body, streaming: Boolean(live) };
 
     if (msg.role === 'user') {
       const text = document.createElement('div');
@@ -1455,7 +1606,8 @@
     if (!item || !item.url) return;
     const existing = Array.from(refs.sourcesEl.querySelectorAll('a')).some((a) => a.href === item.url);
     if (existing) return;
-    refs.sourcesEl.style.display = '';
+    refs.sourcesEl.dataset.pending = '1';
+    if (!refs.streaming) refs.sourcesEl.style.display = '';
     if (!refs.sourcesEl.dataset.titled) {
       const title = document.createElement('div');
       title.className = 'sources-title';
@@ -1490,7 +1642,8 @@
   function addFile(refs, file) {
     if (!file || !file.path) return;
     if (Array.from(refs.filesEl.querySelectorAll('.file-card')).some((n) => n.dataset.path === file.path)) return;
-    refs.filesEl.style.display = '';
+    refs.filesEl.dataset.pending = '1';
+    if (!refs.streaming) refs.filesEl.style.display = '';
     const card = document.createElement('div');
     card.className = 'file-card';
     card.dataset.path = file.path;
@@ -1810,14 +1963,13 @@
   }
 
   function scheduleRender(live) {
-    if (live.renderScheduled) return;
-    live.renderScheduled = true;
-    requestAnimationFrame(() => {
-      live.renderScheduled = false;
+    if (live.renderTimer) return;
+    live.renderTimer = setTimeout(() => {
+      live.renderTimer = null;
       if (!live.refs.contentEl) return;
       live.refs.contentEl.innerHTML = MD.render(live.msg.text);
       scrollMaybe();
-    });
+    }, 60);
   }
 
   function setStatus(live, text) {
@@ -1837,6 +1989,9 @@
       refs.contentEl.innerHTML = MD.render(live.msg.text || '');
       if (!live.msg.text) refs.contentEl.style.display = 'none';
     }
+    refs.streaming = false;
+    if (refs.sourcesEl && refs.sourcesEl.dataset.pending) refs.sourcesEl.style.display = '';
+    if (refs.filesEl && refs.filesEl.dataset.pending) refs.filesEl.style.display = '';
     if (refs.think) {
       refs.think.el.classList.remove('live');
       refs.think.el.open = false;
@@ -3155,6 +3310,22 @@ if (skillPickBtn) {
       renderOutputsPage();
     });
     $('#outputsRefresh').addEventListener('click', () => loadOutputs(true));
+    $('#jumpBottom').addEventListener('click', jumpToBottom);
+    let stickTimer = null;
+    $('#chat').addEventListener(
+      'scroll',
+      () => {
+        if (stickTimer) return;
+        stickTimer = setTimeout(() => {
+          stickTimer = null;
+          const chat = $('#chat');
+          if (!chat) return;
+          state.chatStick = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 60;
+          updateJumpBtn();
+        }, 80);
+      },
+      { passive: true }
+    );
     $('#outputsFolder').addEventListener('click', async () => {
       try {
         await fetch('/api/open', {
@@ -3291,20 +3462,35 @@ if (skillPickBtn) {
   function scrollToBottom(instant) {
     const chat = $('#chat');
     if (!chat) return;
-    chat.style.scrollBehavior = instant ? 'auto' : 'smooth';
+    state.chatStick = true;
+    chat.style.scrollBehavior = 'auto';
     chat.scrollTop = chat.scrollHeight;
-    setTimeout(() => {
-      chat.style.scrollBehavior = '';
-    }, 30);
+    updateJumpBtn();
   }
 
+  // 粘底：默认跟着最新内容走；用户主动往上滚就停止跟随
   function scrollMaybe(force) {
     const chat = $('#chat');
     if (!chat) return;
-    const near = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 220;
-    if (near || force) {
+    if (state.chatStick || force) {
       chat.scrollTop = chat.scrollHeight;
     }
+    updateJumpBtn();
+  }
+
+  function updateJumpBtn() {
+    const chat = $('#chat');
+    const btn = $('#jumpBottom');
+    if (!chat || !btn) return;
+    const far = chat.scrollHeight - chat.scrollTop - chat.clientHeight > 160;
+    btn.classList.toggle('show', far && !state.chatStick);
+  }
+
+  function jumpToBottom() {
+    state.chatStick = true;
+    const chat = $('#chat');
+    if (chat) chat.scrollTop = chat.scrollHeight;
+    updateJumpBtn();
   }
 
   function toggleSidebar() {

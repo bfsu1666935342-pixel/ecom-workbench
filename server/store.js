@@ -25,6 +25,7 @@ class Store {
       agentId: null,
       createdAt: now,
       updatedAt: now,
+      pinned: false,
       api: [],
       ui: [],
       usage: { input: 0, output: 0, cached: 0 },
@@ -50,10 +51,16 @@ class Store {
         agentId: s.agentId || null,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
+        pinned: Boolean(s.pinned),
         count: Array.isArray(s.ui) ? s.ui.filter((m) => m.role !== 'system').length : 0,
       });
     }
-    out.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    out.sort((a, b) => {
+      const pa = a.pinned ? 1 : 0;
+      const pb = b.pinned ? 1 : 0;
+      if (pa !== pb) return pb - pa;
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
+    });
     return out;
   }
 
