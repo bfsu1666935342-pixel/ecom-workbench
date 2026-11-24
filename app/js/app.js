@@ -2866,8 +2866,9 @@
           const v = sel ? String(sel.value || '') : '';
           if (!v) return null;
           const [sid, alias] = v.split('|');
-          const hit = state.shops.items.find((s) => String(s.sid) === String(sid) && s.alias === alias);
-          return { alias, sid: Number(sid) || 0, profile_id: (hit && hit.profileId) || '' };
+          const prev = draft.store || {};
+          const sameSid = String(prev.sid || '') === String(sid);
+          return { alias, sid: Number(sid) || 0, profile_id: sameSid ? String(prev.profile_id || '') : '' };
         })(),
         parents,
         competitor: {
