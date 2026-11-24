@@ -22,6 +22,7 @@ const {
 function createApi(ctx) {
   const { cfg, store, skills, agents, mcp } = ctx;
   const busy = new Set();
+let shopsCache = null; // 领星店铺列表缓存（10 分钟）
 
   function skillById(id) {
     return skills.find((s) => s.id === id) || null;
@@ -541,6 +542,45 @@ function createApi(ctx) {
       walk(store.workspace, '', 0);
       items.sort((a, b) => b.mtime - a.mtime);
       sendJson(res, 200, { items: items.slice(0, limit), total: items.length });
+      return true;
+    }
+
+    if (pathname === '/api/shops' && req.method === 'GET') {
+      const now = Date.now();
+      if (shopsCache && now - shopsCache.at < 10 * 60 * 1000) {
+        sendJson(res, 200, shopsCache.data);
+        return true;
+      }
+      try {
+        const { McpClient } = require('./mcp');
+        const target =
+          mcp.list().find((s) => /lingxing\.com/i.test(String(s.url || ''))) ||
+          mcp.list().find((s) => /lingxing/i.test(String(s.id || '')) + String(s.mark || ''));
+        if (!target) throw new Error('还没有配置领星数据源');
+        const client = new McpClient(target, cfg.version);
+        const text = await client.callTool('action', { toolId: 'ad_auth_shops', params: {} });
+        let doc = null;
+        try {
+          doc = JSON.parse(text);
+        } catch {
+          throw new Error('领星返回的不是 JSON：' + String(text).slice(0, 120));
+        }
+        const inner = doc && doc.data;
+        const rows = Array.isArray(inner) ? inner : (inner && (inner.data || inner.list)) || [];
+        const shops = (Array.isArray(rows) ? rows : [])
+          .map((r) => ({
+            alias: String(r.alias || r.name || '').trim(),
+            sid: Number(r.sid) || 0,
+            profileId: String(r.profile_id || ''),
+            country: String(r.country || '').toUpperCase(),
+            storeId: Number(r.store_id) || 0,
+          }))
+          .filter((s) => s.alias);
+        shopsCache = { at: now, data: { ok: true, shops } };
+        sendJson(res, 200, shopsCache.data);
+      } catch (err) {
+        sendJson(res, 200, { ok: false, error: friendlyError(err), shops: [] });
+      }
       return true;
     }
 

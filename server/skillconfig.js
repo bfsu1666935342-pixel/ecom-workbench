@@ -103,6 +103,16 @@ function sanitizeProduct(raw) {
       asin: String(competitor.asin || '').trim().toUpperCase(),
       note: String(competitor.note || ''),
     },
+    store: (() => {
+      const s = raw.store;
+      if (!s) return null;
+      if (typeof s === 'string') return { alias: s.trim(), sid: 0, profile_id: '' };
+      return {
+        alias: String(s.alias || '').trim(),
+        sid: Number(s.sid) || 0,
+        profile_id: String(s.profile_id || '').trim(),
+      };
+    })(),
     price: Number(raw.price) || 0,
     rating: Number(raw.rating) || 0,
     enabled: raw.enabled !== false,

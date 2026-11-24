@@ -28,6 +28,7 @@
     skillFilter: { q: '', group: '全部' },
     outputFilter: { q: '', group: '全部', onlyDocs: true },
     outputs: { items: [], total: 0, loaded: false },
+    shops: { items: [], loaded: false },
     settings: {
       key: '',
       model: '',
@@ -746,6 +747,8 @@
     } else if (view === 'skills') {
       $('#chatTitle').textContent = '技能库';
       updateSkillUI();
+      renderSkillFilters();
+      renderSkillsPage();
     } else if (view === 'agents') {
       $('#chatTitle').textContent = '员工';
       renderAgentsPage();
@@ -2337,6 +2340,51 @@
     return n ? n.toLocaleString('en-US') : '—';
   }
 
+  async function loadShops(force) {
+    if (state.shops.loaded && !force) return state.shops.items;
+    try {
+      const resp = await fetch('/api/shops');
+      const data = await resp.json();
+      state.shops.items = Array.isArray(data.shops) ? data.shops : [];
+      state.shops.loaded = true;
+      state.shops.error = data.ok ? '' : data.error || '';
+    } catch {
+      state.shops.items = [];
+      state.shops.error = '读取店铺列表失败';
+    }
+    return state.shops.items;
+  }
+
+  async function fillStoreSelect(modal, current) {
+    const sel = modal.querySelector('#cfStore');
+    if (!sel) return;
+    const paint = () => {
+      const opts = ['<option value="">自动（该站点全部店铺）</option>'];
+      const curSid = current && current.sid ? String(current.sid) : '';
+      const curAlias = (current && current.alias) || '';
+      const siteCode = String((modal.querySelector('#cfSite') || {}).value || 'US').trim().toUpperCase();
+      const pool = state.shops.items.filter((s) => !s.country || s.country === siteCode);
+      for (const s of (pool.length ? pool : state.shops.items)) {
+        const picked = curSid && String(s.sid) === curSid;
+        opts.push(
+          '<option value="' + esc(String(s.sid) + '|' + s.alias) + '"' + (picked ? ' selected' : '') + '>' +
+            esc(s.alias) + (s.country ? '（' + esc(s.country) + '）' : '') +
+          '</option>'
+        );
+      }
+      if (curAlias && !state.shops.items.some((s) => s.alias === curAlias)) {
+        opts.push('<option value="' + esc(String(curSid) + '|' + curAlias) + '" selected>' + esc(curAlias) + '（已保存）</option>');
+      }
+      sel.innerHTML = opts.join('');
+    };
+    paint();
+    if (!state.shops.loaded) {
+      await loadShops();
+      paint();
+      if (state.shops.error) toast(state.shops.error);
+    }
+  }
+
   function renderProductConfig(state) {
     const rows = state.products
       .map((p, i) => {
@@ -2348,6 +2396,7 @@
           '<tr class="cfg-row" data-row="' + i + '">' +
           '<td><b>' + esc(p.spu) + '</b>' + (p.enabled === false ? '<span class="cfg-off">停用</span>' : '') + '</td>' +
           '<td>' + esc(p.site || 'US') + '</td>' +
+          '<td class="cfg-store">' + esc((p.store && p.store.alias) || '自动') + '</td>' +
           '<td class="cfg-mono">' + esc(parents) + '</td>' +
           '<td class="cfg-mono">' + esc(comp) + '</td>' +
           '<td class="cfg-num">' + money(t.default_monthly) + '</td>' +
@@ -2365,7 +2414,7 @@
       '<div class="tag">改完保存，再点「① 生成本周周报」才会生效</div></div></div>' +
       '<button class="modal-close" data-close type="button">×</button></div>' +
       (state.products.length
-        ? '<table class="cfg-table"><thead><tr><th>SPU</th><th>站点</th><th>父体 ASIN</th><th>竞品</th><th>月目标</th><th>利润率</th><th></th></tr></thead><tbody>' +
+        ? '<table class="cfg-table"><thead><tr><th>SPU</th><th>站点</th><th>店铺</th><th>父体 ASIN</th><th>竞品</th><th>月目标</th><th>利润率</th><th></th></tr></thead><tbody>' +
           rows +
           '</tbody></table>'
         : '<p class="run-hint">还没有登记任何 SPU。</p>') +
@@ -2421,6 +2470,7 @@
       '<div class="cfg-grid">' +
       '<label>SPU 编码<input type="text" id="cfSpu" value="' + esc(draft.spu || '') + '" placeholder="LS-66D38" spellcheck="false"' + (isNew ? '' : ' readonly') + '></label>' +
       '<label>站点<input type="text" id="cfSite" value="' + esc(draft.site || 'US') + '" spellcheck="false"></label>' +
+      '<label>店铺<select id="cfStore"><option value="">自动（该站点全部店铺）</option></select></label>' +
       '<label>售价（USD）<input type="number" step="0.01" id="cfPrice" value="' + (Number(draft.price) || '') + '"></label>' +
       '<label>评分<input type="number" step="0.1" min="0" max="5" id="cfRating" value="' + (Number(draft.rating) || '') + '"></label>' +
       '</div>' +
@@ -2449,6 +2499,7 @@
       '<button class="btn primary" type="button" data-save>保存</button></div>';
 
     const modal = cfgModal(state, html);
+    fillStoreSelect(modal, draft.store || null);
     const collect = () => {
       const parents = [];
       modal.querySelectorAll('[data-parent]').forEach((input) => {
@@ -2476,6 +2527,14 @@
         id: String(modal.querySelector('#cfSpu').value || '').trim(),
         spu: String(modal.querySelector('#cfSpu').value || '').trim(),
         site: String(modal.querySelector('#cfSite').value || 'US').trim().toUpperCase(),
+        store: (() => {
+          const sel = modal.querySelector('#cfStore');
+          const v = sel ? String(sel.value || '') : '';
+          if (!v) return null;
+          const [sid, alias] = v.split('|');
+          const hit = state.shops.items.find((s) => String(s.sid) === String(sid) && s.alias === alias);
+          return { alias, sid: Number(sid) || 0, profile_id: (hit && hit.profileId) || '' };
+        })(),
         parents,
         competitor: {
           asin: String(modal.querySelector('#cfCompAsin').value || '').trim().toUpperCase(),
