@@ -1555,3 +1555,6 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   cursor: pointer;
 }
 .output-actions button:hover { color: var(--ink); border-color: var(--faint); }
+
+/* 运行中实时输出：限制高度，自动滚到底 */
+.run-out.is-live { max-height: 260px; overflow-y: auto; white-space: pre-wrap; }

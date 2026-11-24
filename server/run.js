@@ -201,7 +201,7 @@ function copyToWorkspace(list, workspace, skillId) {
   return saved;
 }
 
-function runCommand({ skill, index, params, workspace, dataDir, onChild }) {
+function runCommand({ skill, index, params, workspace, dataDir, onChild, onData }) {
   const list = commandList(skill);
   const cmd = list.find((c) => c.index === Number(index)) || list[Number(index)];
   if (!cmd) return Promise.reject(Object.assign(new Error('这个技能没有配置可运行命令'), { status: 400 }));
@@ -225,6 +225,14 @@ function runCommand({ skill, index, params, workspace, dataDir, onChild }) {
   walkFiles(dir, 0, before, 0);
 
   return new Promise((resolve) => {
+    const emit = (chunk, stream) => {
+      if (typeof onData !== 'function') return;
+      try {
+        onData(String(chunk), stream);
+      } catch {
+        /* 回调出错不影响运行 */
+      }
+    };
     let stdout = '';
     let stderr = '';
     let settled = false;
@@ -258,10 +266,14 @@ function runCommand({ skill, index, params, workspace, dataDir, onChild }) {
     }, cmd.timeoutMs);
 
     child.stdout.on('data', (d) => {
-      if (stdout.length < MAX_OUTPUT) stdout += d.toString();
+      const text = d.toString();
+      if (stdout.length < MAX_OUTPUT) stdout += text;
+      emit(text, 'out');
     });
     child.stderr.on('data', (d) => {
-      if (stderr.length < MAX_OUTPUT) stderr += d.toString();
+      const text = d.toString();
+      if (stderr.length < MAX_OUTPUT) stderr += text;
+      emit(text, 'err');
     });
     child.on('error', (err) => {
       if (settled) return;
@@ -269,7 +281,7 @@ function runCommand({ skill, index, params, workspace, dataDir, onChild }) {
       clearTimeout(timer);
       resolve({ ok: false, error: '启动失败：' + err.message, output: '', files: [], ms: Date.now() - startedAt });
     });
-    child.on('close', (code) => {
+    const finish = (code) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -285,7 +297,14 @@ function runCommand({ skill, index, params, workspace, dataDir, onChild }) {
         injected: Object.keys(injected || {}).sort(),
         ms: Date.now() - startedAt,
       });
+    };
+
+    // 进程退出就算跑完：有时管道被别的进程攥着，close 迟迟不来，
+    // 结果就是"活干完了但按钮一直在转"，等 1.5 秒收尾即可
+    child.on('exit', (code) => {
+      setTimeout(() => finish(code), 1500);
     });
+    child.on('close', (code) => finish(code));
   });
 }
 

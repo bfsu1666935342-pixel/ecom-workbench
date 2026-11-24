@@ -2132,7 +2132,8 @@
         signal: controller.signal,
         body: JSON.stringify({ skillId: skill.id, index: cmd.index, params }),
       });
-      const data = await resp.json();
+      const ctype = String(resp.headers.get('content-type') || '');
+      const data = ctype.indexOf('ndjson') >= 0 ? await readRunStream(resp, box) : await resp.json();
       const secs = data.ms ? Math.round(data.ms / 1000) : 0;
       let html = '';
       if (data.ok) {
@@ -2203,6 +2204,56 @@
       btn.disabled = false;
       btn.textContent = '重新运行';
     }
+  }
+
+  /**
+   * 读取 /api/skill/run 的 NDJSON 流：
+   *   {"type":"start"} / {"type":"out","text":"..."} / {"type":"done","result":{...}}
+   * 跑的过程中把输出实时刷到面板上，最后返回 done 里的结果。
+   */
+  async function readRunStream(resp, box) {
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let live = '';
+    let done = null;
+    const paint = () => {
+      const el = box.querySelector('[data-preview]');
+      if (!el) return;
+      const text = live.length > 8000 ? '…（前略）\n' + live.slice(-8000) : live;
+      el.textContent = text || '等待输出…';
+      el.scrollTop = el.scrollHeight;
+      el.classList.add('is-live');
+    };
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      let nl = buffer.indexOf('\n');
+      while (nl >= 0) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (line) {
+          let evt = null;
+          try {
+            evt = JSON.parse(line);
+          } catch {
+            /* 半行，忽略 */
+          }
+          if (evt && evt.type === 'out') {
+            live += String(evt.text || '');
+            paint();
+          } else if (evt && evt.type === 'done') {
+            done = evt.result || null;
+          }
+        }
+        nl = buffer.indexOf('\n');
+      }
+    }
+    if (!done) {
+      return { ok: false, error: '连接中断，没收到结果。刷新页面再点一次运行。', files: [], output: live };
+    }
+    return done;
   }
 
   function applySkill(skill, values, starter) {

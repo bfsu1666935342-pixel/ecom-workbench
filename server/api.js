@@ -375,6 +375,8 @@ let shopsCache = null; // 领星店铺列表缓存（10 分钟）
           killChild();
         };
         req.on('close', onClose);
+        // 流式响应断开时 res 也会 close，两个都挂上，避免留下孤儿进程
+        res.on('close', onClose);
 
         const need = Array.isArray(skill.meta && skill.meta.requiresEnv) ? skill.meta.requiresEnv : [];
         if (need.length) {
@@ -398,19 +400,38 @@ let shopsCache = null; // 领星店铺列表缓存（10 分钟）
           }
         }
 
+        // 边跑边推：NDJSON，一行一个事件
+        res.writeHead(200, {
+          'Content-Type': 'application/x-ndjson; charset=utf-8',
+          'Cache-Control': 'no-store',
+          'X-Accel-Buffering': 'no',
+        });
+        const push = (obj) => {
+          if (res.writableEnded || res.destroyed) return;
+          try {
+            res.write(JSON.stringify(obj) + '\n');
+          } catch {
+            /* 客户端断了就算了 */
+          }
+        };
+        push({ type: 'start', cmd: skill.id, index: body.index });
+
         const result = await runCommand({
           skill,
           index: body.index,
           params: body.params || {},
           workspace: store.workspace,
           dataDir: store.dataDir,
+          onData: (text, stream) => push({ type: 'out', text, stream }),
           onChild: (c) => {
             child = c;
             if (gone) killChild();
           },
         });
         req.removeListener('close', onClose);
-        sendJson(res, 200, Object.assign({ ok: false }, result));
+        res.removeListener('close', onClose);
+        push({ type: 'done', result: Object.assign({ ok: false }, result) });
+        if (!res.writableEnded) res.end();
       } catch (err) {
         sendJson(res, 200, { ok: false, error: friendlyError(err) });
       } finally {
