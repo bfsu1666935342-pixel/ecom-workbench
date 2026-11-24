@@ -34,7 +34,7 @@ function normalizeCommand(raw, index) {
     desc: String(raw.desc || ''),
     run: raw.run.map(String),
     params,
-    timeoutMs: Math.max(5000, Math.min(900000, Number(raw.timeoutMs) || 180000)),
+    timeoutMs: Math.max(5000, Math.min(3600000, Number(raw.timeoutMs) || 180000)),
   };
 }
 
