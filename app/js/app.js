@@ -1565,6 +1565,16 @@
     const body = document.createElement('div');
     body.className = 'think-body';
     body.textContent = text || '';
+    // 思考框自身有 340px 上限和滚动条：默认粘底，用户手动往上翻才停
+    body.dataset.stick = '1';
+    body.addEventListener(
+      'scroll',
+      () => {
+        const nearBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+        body.dataset.stick = nearBottom ? '1' : '0';
+      },
+      { passive: true }
+    );
     details.append(summary, body);
     return { el: details, body, label };
   }
@@ -1865,6 +1875,7 @@
         if (!live.thinkStartedAt) live.thinkStartedAt = Date.now();
         const t = ensureThink(refs, true);
         t.body.textContent += ev.d;
+        if (t.body.dataset.stick !== '0') t.body.scrollTop = t.body.scrollHeight;
         live.msg.reasoning += ev.d;
         if (!refs.think.el.open) refs.think.el.open = true;
         scrollMaybe();
