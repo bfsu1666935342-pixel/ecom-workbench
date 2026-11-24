@@ -1660,3 +1660,29 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .jump-bottom:hover { color: var(--ink); border-color: var(--faint); }
 .jump-bottom svg { width: 16px; height: 16px; }
 [data-theme="dark"] .jump-bottom { background: #26262a; border-color: #35353c; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
+
+/* ---- 选产品列表 ---- */
+.sp-list { display: flex; flex-direction: column; gap: 2px; max-height: 46vh; overflow-y: auto; margin-top: 10px; }
+.sp-row {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.sp-row:hover { background: var(--raised); }
+.sp-row.added { opacity: 0.55; cursor: default; }
+.sp-spu { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+.sp-title { font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-meta { font-size: 11px; color: var(--faint); white-space: nowrap; }
+.cfg-estimate { font-size: 12px; color: var(--muted); padding: 10px 2px 0; }
+.cfg-estimate b { color: var(--ink); font-weight: 600; }
+.cfg-estimate.warn { color: var(--warn, #b45309); }

@@ -23,6 +23,7 @@ function createApi(ctx) {
   const { cfg, store, skills, agents, mcp } = ctx;
   const busy = new Set();
 let shopsCache = null; // 领星店铺列表缓存（10 分钟）
+const spusCache = new Map(); // 按店铺列 SPU 的缓存（10 分钟）
 
   function skillById(id) {
     return skills.find((s) => s.id === id) || null;
@@ -602,6 +603,95 @@ let shopsCache = null; // 领星店铺列表缓存（10 分钟）
         sendJson(res, 200, shopsCache.data);
       } catch (err) {
         sendJson(res, 200, { ok: false, error: friendlyError(err), shops: [] });
+      }
+      return true;
+    }
+
+    // 按店铺列出 SPU（供配置产品时下拉选择，不用手填）
+    if (pathname === '/api/lingxing/spus' && req.method === 'GET') {
+      const sid = String(url.searchParams.get('sid') || '').trim();
+      if (!sid) {
+        sendJson(res, 400, { ok: false, error: '缺少店铺 sid' });
+        return true;
+      }
+      const days = Math.min(Number(url.searchParams.get('days')) || 30, 90);
+      const key = sid + ':' + days;
+      if (spusCache.has(key) && Date.now() - spusCache.get(key).at < 10 * 60 * 1000) {
+        sendJson(res, 200, spusCache.get(key).data);
+        return true;
+      }
+      try {
+        const { McpClient } = require('./mcp');
+        const target =
+          mcp.list().find((x) => /lingxing\.com/i.test(String(x.url || ''))) ||
+          mcp.list().find((x) => /lingxing/i.test(String(x.id || '') + String(x.mark || '')));
+        if (!target) throw new Error('还没有配置领星数据源');
+        const client = new McpClient(target, cfg.version);
+
+        const end = new Date();
+        const start = new Date(end.getTime() - (days - 1) * 86400000);
+        const ymd = (d) => d.toISOString().slice(0, 10);
+        const text = await client.callTool('action', {
+          toolId: 'query_product_performance_asin_lists',
+          params: {
+            start_date: ymd(start),
+            end_date: ymd(end),
+            date_type: 'purchase',
+            date_view_type: 'day',
+            date_view_order_type: 0,
+            summary_field: 'spu',
+            summary_field_level1: 'spu',
+            sids: sid,
+            currency_code: 'USD',
+            length: 200,
+            offset: 0,
+            sort_field: 'volume',
+            sort_type: 'desc',
+          },
+        });
+        let doc = null;
+        try {
+          doc = JSON.parse(text);
+        } catch {
+          throw new Error('领星返回的不是 JSON：' + String(text).slice(0, 120));
+        }
+        const dig = (o) => {
+          // 逐层剥：{data:{data:{data:{list:[...]}}}}
+          let cur = o;
+          for (let i = 0; i < 5 && cur; i += 1) {
+            if (Array.isArray(cur)) return cur;
+            if (Array.isArray(cur.list)) return cur.list;
+            cur = cur.data;
+          }
+          return [];
+        };
+        const rows = dig(doc);
+        const map = new Map();
+        for (const row of rows) {
+          const spu = String(row.spu || (Array.isArray(row.spu_spu_names) && row.spu_spu_names[0] && row.spu_spu_names[0].spu) || '').trim();
+          if (!spu) continue;
+          const item = map.get(spu) || {
+            spu,
+            title: String(row.item_name || '').trim(),
+            parents: [],
+            volume: 0,
+            amount: 0,
+          };
+          for (const p of row.parent_asins || []) {
+            const asin = String((p && p.parent_asin) || '').toUpperCase();
+            if (asin && !item.parents.includes(asin)) item.parents.push(asin);
+          }
+          item.volume += Number(row.volume) || 0;
+          item.amount += Number(row.amount) || 0;
+          if (!item.title && row.item_name) item.title = String(row.item_name).trim();
+          map.set(spu, item);
+        }
+        const spus = [...map.values()].sort((a, b) => b.volume - a.volume);
+        const data = { ok: true, sid, days, spus };
+        spusCache.set(key, { at: Date.now(), data });
+        sendJson(res, 200, data);
+      } catch (err) {
+        sendJson(res, 200, { ok: false, error: friendlyError(err), spus: [] });
       }
       return true;
     }

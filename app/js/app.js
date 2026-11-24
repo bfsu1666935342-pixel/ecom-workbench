@@ -2634,13 +2634,64 @@
         ? '<table class="cfg-table"><thead><tr><th>SPU</th><th>站点</th><th>店铺</th><th>父体 ASIN</th><th>竞品</th><th>月目标</th><th>利润率</th><th></th></tr></thead><tbody>' +
           rows +
           '</tbody></table>'
-        : '<p class="run-hint">还没有登记任何 SPU。</p>') +
+        : '<div class="run-hint" style="padding:18px 2px;line-height:1.9">还没有产品。<br>点下面「+ 新增产品」→ 选店铺 → 我直接把这家店的产品列出来，你点一个就好。</div>') +
+      '<div class="cfg-estimate" id="cfgEstimate"></div>' +
       '<div class="modal-actions"><button class="btn ghost" data-close type="button">关闭</button>' +
-      '<button class="btn" type="button" data-add>+ 新增 SPU</button></div>';
+      '<button class="btn" type="button" data-add>+ 新增产品</button></div>';
 
     const modal = cfgModal(state, html);
     modal.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => state.closer()));
-    modal.querySelector('[data-add]').addEventListener('click', () => {
+    modal.querySelector('[data-add]').addEventListener('click', () => openSpuPicker(state));
+    const est = modal.querySelector('#cfgEstimate');
+    if (est) {
+      const enabled = (state.products || []).filter((p) => p.enabled !== false);
+      const n = enabled.length;
+      if (!n) {
+        est.textContent = '';
+      } else {
+        const mins = n * 2;
+        const warn = n > 5 ? ' 建议先跑 3 个看看效果，剩下的下次再跑。' : '';
+        est.innerHTML =
+          '已登记 <b>' + n + '</b> 个产品 · 跑一份大约 <b>' + mins + ' 分钟</b>' + warn + '';
+        if (n > 5) est.classList.add('warn');
+      }
+    }
+    modal.querySelectorAll('[data-row]').forEach((tr) => {
+      tr.addEventListener('click', () => {
+        const index = Number(tr.dataset.row);
+        state.editing = index;
+        renderProductEditor(state, JSON.parse(JSON.stringify(state.products[index])), false);
+      });
+    });
+  }
+
+  async function openSpuPicker(state) {
+    const html =
+      '<div class="modal-head"><div class="skill-hero"><div class="skill-no">＋</div>' +
+      '<div><div class="skill-group-tag">新增产品</div>' +
+      '<h2>先选店铺</h2>' +
+      '<div class="tag">选好店铺，我把这家店在卖的产品列出来，你点一个就行</div></div></div>' +
+      '<button class="modal-close" data-close type="button">×</button></div>' +
+      '<div class="cfg-form">' +
+      '<div class="cfg-grid">' +
+      '<label>店铺<select id="spShop"><option value="">读取中…</option></select></label>' +
+      '<label>搜索<input type="text" id="spSearch" placeholder="SPU 或标题关键字" spellcheck="false"></label>' +
+      '</div>' +
+      '<div class="sp-list" id="spList"><p class="run-hint">选一个店铺开始</p></div>' +
+      '</div>' +
+      '<div class="modal-actions"><button class="btn ghost" data-close type="button">取消</button>' +
+      '<button class="btn ghost" data-manual type="button">手动填写</button></div>';
+
+    const modal = cfgModal(state, html);
+    const sel = modal.querySelector('#spShop');
+    const list = modal.querySelector('#spList');
+    const search = modal.querySelector('#spSearch');
+    let items = [];
+    let site = 'US';
+    let shop = null;
+
+    modal.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => state.closer()));
+    modal.querySelector('[data-manual]').addEventListener('click', () => {
       state.editing = -1;
       renderProductEditor(state, {
         spu: '',
@@ -2653,13 +2704,79 @@
         target: {},
       }, true);
     });
-    modal.querySelectorAll('[data-row]').forEach((tr) => {
-      tr.addEventListener('click', () => {
-        const index = Number(tr.dataset.row);
-        state.editing = index;
-        renderProductEditor(state, JSON.parse(JSON.stringify(state.products[index])), false);
+
+    const shops = await loadShops();
+    const us = shops.filter((x) => !x.country || x.country === 'US');
+    const pool = us.length ? us : shops;
+    sel.innerHTML = pool.map((x) => '<option value="' + esc(x.sid) + '">' + esc(x.alias) + '</option>').join('');
+
+    const paint = () => {
+      const q = String(search.value || '').trim().toLowerCase();
+      const rows = items.filter((it) => {
+        if (!q) return true;
+        return (it.spu + ' ' + it.title).toLowerCase().includes(q);
       });
-    });
+      if (!rows.length) {
+        list.innerHTML = '<p class="run-hint">这个店铺近 30 天没有在卖的产品</p>';
+        return;
+      }
+      const have = new Set((state.products || []).map((p) => p.spu));
+      list.innerHTML = rows
+        .map((it) => {
+          const added = have.has(it.spu);
+          return (
+            '<button class="sp-row' + (added ? ' added' : '') + '" type="button" data-spu="' + esc(it.spu) + '"' + (added ? ' disabled' : '') + '>' +
+            '<span class="sp-spu">' + esc(it.spu) + '</span>' +
+            '<span class="sp-title">' + esc(it.title || '（无标题）') + '</span>' +
+            '<span class="sp-meta">' + it.parents.length + ' 个父体 · 近30天 ' + Math.round(it.volume) + ' 件' + (added ? ' · 已添加' : '') + '</span>' +
+            '</button>'
+          );
+        })
+        .join('');
+      list.querySelectorAll('[data-spu]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const it = items.find((x) => x.spu === btn.dataset.spu);
+          if (!it) return;
+          state.editing = -1;
+          renderProductEditor(state, {
+            spu: it.spu,
+            site,
+            title: it.title,
+            store: shop ? { alias: shop.alias, sid: shop.sid, profile_id: shop.profileId || '' } : null,
+            parents: (it.parents.length ? it.parents : ['']).map((a) => ({ asin: a, label: '' })),
+            competitor: { asin: '', url: '' },
+            price: 0,
+            rating: 0,
+            enabled: true,
+            target: {},
+          }, true);
+        });
+      });
+    };
+
+    const load = async () => {
+      shop = shopPool();
+      if (!shop) return;
+      site = shop.country || 'US';
+      list.innerHTML = '<p class="run-hint"><span class="spinner"></span> 正在从领星读取产品…</p>';
+      try {
+        const resp = await fetch('/api/lingxing/spus?sid=' + encodeURIComponent(shop.sid));
+        const data = await resp.json();
+        if (!data.ok) {
+          list.innerHTML = '<p class="run-hint" style="color:var(--danger)">' + esc(data.error || '读取失败') + '</p>';
+          return;
+        }
+        items = data.spus || [];
+        paint();
+      } catch (err) {
+        list.innerHTML = '<p class="run-hint" style="color:var(--danger)">读取失败：' + esc(err.message || '') + '</p>';
+      }
+    };
+
+    let shopPool = () => pool.find((x) => String(x.sid) === String(sel.value)) || pool[0];
+    sel.addEventListener('change', load);
+    search.addEventListener('input', paint);
+    await load();
   }
 
   function renderProductEditor(state, draft, isNew) {
@@ -2694,7 +2811,7 @@
       '<h3>父体 ASIN（一个 SPU 可以挂多个）</h3>' +
       '<div class="cfg-parents" id="cfParents">' + parentRows + '</div>' +
       '<button type="button" class="btn small ghost" id="cfAddParent">+ 加一个父体</button>' +
-      '<h3>对标竞品（一个 ASIN）</h3>' +
+      '<h3>对标竞品（可跳过，不填就不出竞品那一段）</h3>' +
       '<div class="cfg-grid">' +
       '<label>竞品 ASIN<input type="text" id="cfCompAsin" value="' + esc(draft.competitor.asin || '') + '" placeholder="B0XXXXXXXX" spellcheck="false"></label>' +
       '<label>竞品链接<input type="text" id="cfCompUrl" value="' + esc(draft.competitor.url || '') + '" placeholder="https://www.amazon.com/dp/..." spellcheck="false"></label>' +
