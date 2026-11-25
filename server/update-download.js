@@ -8,6 +8,14 @@ const http = require('http');
 const https = require('https');
 const tls = require('tls');
 
+// GitHub 加速镜像：把 https://github.com/... 前面拼上这些前缀即可
+const MIRROR_PREFIXES = [
+  'https://ghfast.top/',
+  'https://ghproxy.net/',
+  'https://gh-proxy.com/',
+  'https://mirror.ghproxy.com/',
+];
+
 const PROXY_CANDIDATES = [
   process.env.ECOM_UPDATE_PROXY,
   process.env.HTTPS_PROXY,
@@ -147,7 +155,7 @@ async function downloadAny(url, opts = {}) {
     for (let hop = 0; hop < 5; hop += 1) {
       const resp = await fetch(target, {
         headers: { 'User-Agent': 'ecom-workbench' },
-        signal: AbortSignal.timeout(Math.min(timeoutMs, 20000)),
+        signal: AbortSignal.timeout(Math.min(timeoutMs, 600000)),
         redirect: 'manual',
       });
       if (resp.status >= 300 && resp.status < 400) {
@@ -178,7 +186,18 @@ async function downloadAny(url, opts = {}) {
 
   // 默认代理优先：国内网络直连 github 的二进制经常是黑洞（不拒绝、不响应），
   // 先试直连会白等好几分钟。
-  const order = preferProxy === false ? ['direct', 'proxy'] : ['proxy', 'direct'];
+  const tryMirror = async (prefix) => {
+    const target = prefix + url;
+    const resp = await fetch(target, {
+      headers: { 'User-Agent': 'ecom-workbench' },
+      signal: AbortSignal.timeout(Math.min(timeoutMs, 600000)),
+      redirect: 'follow',
+    });
+    if (!resp.ok) throw new Error('镜像 HTTP ' + resp.status);
+    return Buffer.from(await resp.arrayBuffer());
+  };
+
+  const order = preferProxy === false ? ['direct', 'mirror', 'proxy'] : ['proxy', 'mirror', 'direct'];
   for (const mode of order) {
     if (mode === 'direct') {
       try {
@@ -186,6 +205,15 @@ async function downloadAny(url, opts = {}) {
         return { buffer, via: 'direct' };
       } catch (err) {
         errors.push('直连：' + err.message);
+      }
+    } else if (mode === 'mirror') {
+      for (const prefix of MIRROR_PREFIXES) {
+        try {
+          const buffer = await tryMirror(prefix);
+          return { buffer, via: 'mirror:' + prefix.replace('https://', '').replace(/\/$/, '') };
+        } catch (err) {
+          errors.push('镜像 ' + prefix.replace('https://', '') + '：' + err.message);
+        }
       }
     } else {
       for (const candidate of PROXY_CANDIDATES) {
@@ -203,4 +231,4 @@ async function downloadAny(url, opts = {}) {
   throw new Error('下载失败（' + errors.slice(0, 4).join('；') + '）');
 }
 
-module.exports = { downloadAny, proxyGet, PROXY_CANDIDATES };
+module.exports = { downloadAny, proxyGet, PROXY_CANDIDATES, MIRROR_PREFIXES };

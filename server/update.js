@@ -83,15 +83,36 @@ function rmrf(target) {
 
 async function download(url, dest, onProgress, expectedSize) {
   const { downloadAny } = require('./update-download');
+  const started = Date.now();
   const result = await downloadAny(url, {
-    timeoutMs: 240000,
+    timeoutMs: 600000,
     preferProxy: true,
     onProgress: (bytes) => {
-      if (onProgress) onProgress(expectedSize ? Math.min(99, Math.round((bytes / expectedSize) * 100)) : 0, bytes);
+      const secs = Math.max(0.5, (Date.now() - started) / 1000);
+      const speed = bytes / 1048576 / secs;
+      if (onProgress) {
+        onProgress(
+          expectedSize ? Math.min(99, Math.round((bytes / expectedSize) * 100)) : 0,
+          bytes,
+          speed
+        );
+      }
     },
   });
+  const got = result.buffer.length;
+  if (expectedSize && got < expectedSize * 0.98) {
+    throw new Error(
+      '下载不完整：只拿到 ' +
+        (got / 1048576).toFixed(1) +
+        ' MB / ' +
+        (expectedSize / 1048576).toFixed(1) +
+        ' MB（' +
+        result.via +
+        '）。重试一次，或到 GitHub Releases 手动下载。'
+    );
+  }
   fs.writeFileSync(dest, result.buffer);
-  return { path: dest, via: result.via };
+  return { path: dest, via: result.via, bytes: got };
 }
 
 function unzip(zipPath, destDir) {
@@ -191,12 +212,14 @@ async function applyUpdate({ appRoot, dryRun, restart }) {
     const got = await download(
       info.assetUrl,
       zip,
-      (p, bytes) => {
+      (p, bytes, speed) => {
         state.percent = p || 0;
         const mb = Math.round((bytes || 0) / 1048576);
         if (mb !== lastMb) {
           lastMb = mb;
-          state.message = '正在下载 v' + info.latest + '… 已下载 ' + mb + ' MB';
+          const total = info.assetSize ? ' / ' + (info.assetSize / 1048576).toFixed(0) + ' MB' : '';
+          const sp = speed ? '（' + speed.toFixed(1) + ' MB/s）' : '';
+          state.message = '正在下载 v' + info.latest + '… ' + mb + ' MB' + total + sp;
         }
       },
       info.assetSize
@@ -210,14 +233,38 @@ async function applyUpdate({ appRoot, dryRun, restart }) {
     fs.mkdirSync(staging, { recursive: true });
     await unzip(zip, staging);
 
-    // zip 里通常套一层目录，找到含 server/main.js 的那层
-    let root = staging;
-    const entries = fs.readdirSync(staging, { withFileTypes: true }).filter((e) => e.isDirectory());
-    if (!fs.existsSync(path.join(root, 'server', 'main.js')) && entries.length === 1) {
-      root = path.join(staging, entries[0].name);
-    }
-    if (!fs.existsSync(path.join(root, 'server', 'main.js'))) {
-      throw new Error('包结构不对：没找到 server/main.js');
+    // 找包根：递归往下找（最多 3 层），含 server/main.js 的那层就是根
+    const looksLikeRoot = (dir) =>
+      fs.existsSync(path.join(dir, 'server', 'main.js')) && fs.existsSync(path.join(dir, 'app', 'index.html'));
+    let root = null;
+    const scan = (dir, depth) => {
+      if (root || depth > 3) return;
+      if (looksLikeRoot(dir)) {
+        root = dir;
+        return;
+      }
+      let entries = [];
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory());
+      } catch {
+        return;
+      }
+      for (const entry of entries) scan(path.join(dir, entry.name), depth + 1);
+    };
+    scan(staging, 0);
+    if (!root) {
+      const top = (() => {
+        try {
+          return fs
+            .readdirSync(staging, { withFileTypes: true })
+            .map((e) => (e.isDirectory() ? e.name + '/' : e.name))
+            .slice(0, 12)
+            .join(', ');
+        } catch {
+          return '(读不到)';
+        }
+      })();
+      throw new Error('包结构不对：没找到 server/main.js（解压后顶层是：' + top + '）');
     }
     if (!fs.existsSync(path.join(root, 'app', 'index.html'))) {
       throw new Error('包结构不对：没找到 app/index.html');
