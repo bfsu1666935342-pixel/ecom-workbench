@@ -2140,6 +2140,11 @@ function addConfigProposal(refs, ev) {
         scrollMaybe();
         break;
       }
+      case 'confirm': {
+        addRunConfirm(refs, ev);
+        scrollMaybe();
+        break;
+      }
       case 'sources': {
         for (const item of ev.items || []) {
           addSource(refs, item);
