@@ -1533,7 +1533,11 @@
       }
     }
 
-    if (msg.card && msg.card.kind !== 'text') {
+    if (msg.card && msg.card.kind === 'confirm') {
+      const wrap = document.createElement('div');
+      addRunConfirm({ filesEl: wrap }, msg.card);
+      body.append(wrap);
+    } else if (msg.card && msg.card.kind !== 'text') {
       body.append(runResultCardEl(msg.card));
     }
 

@@ -274,6 +274,22 @@ async function runTurn(opts) {
       if (ev && ev.t === 'file') {
         if (!uiAssistant.files.some((f) => f.path === ev.path)) uiAssistant.files.push({ path: ev.path, name: ev.name, size: ev.size });
       }
+      // 确认卡落库：实时事件丢了、刷新页面、翻回历史，都还能看到并点
+      if (ev && ev.t === 'confirm') {
+        try {
+          if (!Array.isArray(session.messages)) session.messages = [];
+          session.messages.push({
+            role: 'assistant',
+            text: '',
+            ts: Date.now(),
+            card: Object.assign({ kind: 'confirm' }, ev),
+          });
+          session.updatedAt = Date.now();
+          store.saveSession(session);
+        } catch (err) {
+          console.warn('[agent] 确认卡落库失败：' + (err && err.message));
+        }
+      }
       emit(ev);
     },
   });
