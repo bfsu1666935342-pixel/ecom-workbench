@@ -2583,7 +2583,7 @@ function addConfigProposal(refs, ev) {
             (p.enabled !== false ? ' checked' : '') + '> ' + esc(p.spu) + '</label>'
         )
         .join('') +
-      '</span></div>' +
+      '</span><span class="sr-count" data-count></span></div>' +
       '<div class="sr-line"><span class="sr-k">周</span><span class="sr-v">' + esc(lastWeekLabel()) + '</span></div>' +
       (costMissing.length
         ? '<div class="sr-warn">⚠ ' + esc(costMissing.map((p) => p.spu).join('、')) +
@@ -2596,6 +2596,19 @@ function addConfigProposal(refs, ev) {
     box.querySelectorAll('[data-productcfg]').forEach((b) =>
       b.addEventListener('click', () => openProductConfig(skill))
     );
+
+    // 已选数量实时更新：报告里"几个 SPU"不该写死
+    const countEl = box.querySelector('[data-count]');
+    const refreshCount = () => {
+      const all = box.querySelectorAll('[data-spu]');
+      const on = [...all].filter((el) => el.checked).length;
+      if (countEl) {
+        countEl.textContent = '已选 ' + on + ' / ' + all.length;
+        countEl.classList.toggle('zero', on === 0);
+      }
+    };
+    box.querySelectorAll('[data-spu]').forEach((el) => el.addEventListener('change', refreshCount));
+    refreshCount();
 
     const save = async (notify) => {
       const picked = new Set(
