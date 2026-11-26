@@ -611,6 +611,19 @@ const spusCache = new Map(); // 按店铺列 SPU 的缓存（10 分钟）
       return true;
     }
 
+    // 手动重启：更新后如果进程没换过来，点一下这个
+    if (pathname === '/api/restart' && req.method === 'POST') {
+      sendJson(res, 200, { ok: true });
+      setTimeout(() => {
+        try {
+          const upd = require('./update');
+          upd.restartNow ? upd.restartNow(require('path').join(__dirname, '..')) : process.exit(0);
+        } catch {
+          process.exit(0);
+        }
+      }, 300);
+      return true;
+    }
     if (pathname === '/api/verify' && req.method === 'POST') {
       try {
         const body = await readJsonBody(req, 1024 * 1024);

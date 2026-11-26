@@ -320,12 +320,17 @@ async function applyUpdate({ appRoot, dryRun, restart }) {
 
 /* 起一个脱离的脚本：等本进程退出后重新启动 */
 function startRestart(appRoot) {
+  // 以前调 Start.bat，那套是给打包版写的（要 runtime\node\node.exe），
+  // 在代码目录里跑就起不来，结果「文件更新了、进程还是老的」。
+  // 现在直接用 node 起 server/main.js，不再依赖 bat。
+  const runtimeNode = path.join(appRoot, 'runtime', 'node', 'node.exe');
+  const nodeExe = fs.existsSync(runtimeNode) ? runtimeNode : process.execPath;
   const script = path.join(os.tmpdir(), 'ecom-restart-' + Date.now() + '.cmd');
   const lines = [
     '@echo off',
-    'timeout /t 2 /nobreak >nul',
+    'ping 127.0.0.1 -n 4 >nul',
     'cd /d "' + appRoot + '"',
-    'start "" "' + path.join(appRoot, 'Start.bat') + '"',
+    'start "" "' + nodeExe + '" "' + path.join(appRoot, 'server', 'main.js') + '" --no-open',
   ];
   fs.writeFileSync(script, lines.join('\r\n'), 'utf8');
   const child = spawn('cmd.exe', ['/c', script], {
@@ -336,7 +341,14 @@ function startRestart(appRoot) {
   child.unref();
   setTimeout(() => {
     process.exit(0);
-  }, 1200);
+  }, 1000);
 }
 
-module.exports = { checkForUpdate, applyUpdate, getState, isNewer };
+/** 供 /api/restart 用：直接重启当前实例 */
+function restartNow(appRoot) {
+  startRestart(appRoot || path.join(__dirname, '..'));
+}
+
+module.exports = { checkForUpdate, applyUpdate, getState, isNewer, restartNow };
+
+
