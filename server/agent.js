@@ -278,7 +278,7 @@ async function runTurn(opts) {
     },
   });
   const tools = [
-    ...toolDefs({ search: Boolean(options.search), agentSkills: agent ? agent.skills : null, configSkills, outputGuard }),
+    ...toolDefs({ search: Boolean(options.search), agentSkills: agent ? agent.skills : null, configSkills, outputGuard, skills: opts.skills || [] }),
     ...mcpDefs,
   ];
   const model =
