@@ -149,7 +149,7 @@ function sanitizeTarget(raw) {
   if (raw.target_margin !== undefined) out.target_margin = Number(raw.target_margin) || 0;
   if (raw.cost && typeof raw.cost === 'object') {
     out.cost = {};
-    for (const key of ['unit_cost', 'first_leg', 'fba_fee', 'referral_rate', 'other_per_unit', 'return_handling_per_unit']) {
+    for (const key of ['unit_cost', 'first_leg', 'fba_fee', 'referral_rate', 'storage_rate', 'other_per_unit', 'return_handling_per_unit']) {
       if (raw.cost[key] !== undefined) out.cost[key] = Number(raw.cost[key]) || 0;
     }
   }

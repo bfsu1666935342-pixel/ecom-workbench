@@ -3276,7 +3276,8 @@ function addConfigProposal(refs, ev) {
       '<label>目标利润率（%）<input type="number" step="0.1" id="cfMargin" value="' + (draft.target.target_margin ? Math.round(Number(draft.target.target_margin) * 1000) / 10 : '') + '"></label>' +
       '<label>采购成本<input type="number" step="0.01" id="cfUnitCost" value="' + (Number(cost.unit_cost) || '') + '"></label>' +
       '<label>头程<input type="number" step="0.01" id="cfFirstLeg" value="' + (Number(cost.first_leg) || '') + '"></label>' +
-      '<label>FBA 配送费<input type="number" step="0.01" id="cfFba" value="' + (Number(cost.fba_fee) || '') + '"></label>' +
+      '<label>尾程配送费（FBA / FBM 都填这里）<input type="number" step="0.01" id="cfFba" value="' + (Number(cost.fba_fee) || '') + '"></label>' +
+                    '<label>仓储费（% × 销售额）<input type="number" step="0.1" id="cfStorage" value="' + (cost.storage_rate !== undefined && Number(cost.storage_rate) ? Math.round(Number(cost.storage_rate) * 1000) / 10 : '') + '" placeholder="例如 1.5"></label>' +
       '<label>佣金率（%）<input type="number" step="0.1" id="cfReferral" value="' + (cost.referral_rate !== undefined ? Math.round(Number(cost.referral_rate) * 1000) / 10 : '') + '"></label>' +
       '</div>' +
       '<label class="cfg-check"><input type="checkbox" id="cfEnabled"' + (draft.enabled === false ? '' : ' checked') + '> 参与周报（取消勾选＝停用，不删配置）</label>' +
@@ -3303,6 +3304,7 @@ function addConfigProposal(refs, ev) {
           unit_cost: Number(modal.querySelector('#cfUnitCost').value) || 0,
           first_leg: Number(modal.querySelector('#cfFirstLeg').value) || 0,
           fba_fee: Number(modal.querySelector('#cfFba').value) || 0,
+        storage_rate: pctToNum(modal.querySelector('#cfStorage').value) / 100,
           referral_rate: pctToNum(modal.querySelector('#cfReferral').value) / 100,
         },
       };
