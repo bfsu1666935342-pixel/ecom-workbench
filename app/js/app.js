@@ -2485,7 +2485,12 @@ function addConfigProposal(refs, ev) {
 
     // ③ 配置 + 运行
     const runHtml = cmds.length
-      ? '<div class="skill-run" data-runbox><div class="sr-loading">正在读取配置…</div></div>' +
+      ? (hasCfg
+          ? '<div class="skill-run" data-runbox><div class="sr-loading">正在读取配置…</div></div>'
+          : '<div class="skill-run" data-runbox><div class="sr-line">' +
+            '<span class="sr-v">这个技能不用配置，直接跑；参数在对话里定。</span>' +
+            '<button class="btn small primary" type="button" data-quickrun>运行</button></div>' +
+            '<div class="run-panel hidden" data-runpanel><button type="button" data-gorun hidden></button><div data-runresult></div></div></div>') +
         '<details class="skill-adv"><summary>高级：单独运行命令</summary><div class="run-list">' +
         cmds
           .map((c, i) => {
@@ -2556,6 +2561,17 @@ function addConfigProposal(refs, ev) {
     });
 
     if (hasCfg && cmds.length) loadSkillRunBox(modal, skill, cmds);
+
+    // 没有配置文件的技能：直接给一个运行按钮
+    const quick = modal.querySelector('[data-quickrun]');
+    if (quick && cmds.length) {
+      quick.addEventListener('click', () => {
+        const panel = modal.querySelector('[data-runpanel]');
+        if (!panel) return;
+        panel.classList.remove('hidden');
+        doRunSkill(modal, skill, cmds[0], panel);
+      });
+    }
 
     // 上次产出
     fetch('/api/outputs')
