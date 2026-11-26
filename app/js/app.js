@@ -2398,6 +2398,18 @@ function addConfigProposal(refs, ev) {
     return monday.getFullYear() + '-' + pad(monday.getMonth() + 1) + '-' + pad(monday.getDate());
   }
 
+  /** 任意一天 → 它所在那一周（周一~周日）的区间文案 */
+  function weekRangeOf(iso) {
+    const d = iso ? new Date(iso + 'T00:00:00') : new Date();
+    const dow = d.getDay() || 7;                 // 1=周一 … 7=周日
+    const mon = new Date(d);
+    mon.setDate(d.getDate() - (dow - 1));
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    const f = (x) => x.getMonth() + 1 + '-' + String(x.getDate()).padStart(2, '0');
+    return f(mon) + ' ~ ' + f(sun);
+  }
+
   /** 上一整周（周一~周日）的区间文案 */
   function lastWeekLabel() {
     const now = new Date();
@@ -2598,8 +2610,9 @@ function addConfigProposal(refs, ev) {
       '</span><span class="sr-count" data-count></span></div>' +
       '<div class="sr-line"><span class="sr-k">周区间</span><span class="sr-v sr-week">' +
       '<input type="date" class="sr-date" data-week value="' + lastMondayISO() + '">' +
-      '<span class="sr-hint">默认上一整周（' + esc(lastWeekLabel()) + '），每天自动更新；选别的日期就出那一周</span>' +
+      '<span class="sr-hint">将跑 <b data-week-hint>' + esc(weekRangeOf(lastMondayISO())) + '</b></span>' +
       '</span></div>' +
+      '<div class="sr-tip">选哪一天都按它所在那一周算（周一到周日）；不改默认上一整周，跨周后自动跟着变。</div>' +
       (costMissing.length
         ? '<div class="sr-warn">⚠ ' + esc(costMissing.map((p) => p.spu).join('、')) +
           ' 成本四项未填，利润率不可信 <button class="btn small ghost" type="button" data-productcfg>去填</button></div>'
@@ -2623,6 +2636,14 @@ function addConfigProposal(refs, ev) {
       loadSkillRunBox(modal, skill, cmds);
     };
     window.addEventListener('skillcfg:saved', onCfgSaved);
+
+    const weekEl0 = box.querySelector('[data-week]');
+    const weekHint = box.querySelector('[data-week-hint]');
+    if (weekEl0 && weekHint) {
+      weekEl0.addEventListener('change', () => {
+        weekHint.textContent = weekEl0.value ? weekRangeOf(weekEl0.value) : weekRangeOf(lastMondayISO());
+      });
+    }
 
     const countEl = box.querySelector('[data-count]');
     const refreshCount = () => {
