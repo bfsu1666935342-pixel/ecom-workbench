@@ -2386,6 +2386,18 @@ function addConfigProposal(refs, ev) {
 
   /* ================= 技能 ================= */
 
+  /** 上一整周的周一（ISO），日期选择器的默认值 */
+  function lastMondayISO() {
+    const now = new Date();
+    const dow = now.getDay() || 7;
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - dow);
+    const monday = new Date(sunday);
+    monday.setDate(sunday.getDate() - 6);
+    const pad = (n) => String(n).padStart(2, '0');
+    return monday.getFullYear() + '-' + pad(monday.getMonth() + 1) + '-' + pad(monday.getDate());
+  }
+
   /** 上一整周（周一~周日）的区间文案 */
   function lastWeekLabel() {
     const now = new Date();
@@ -2572,10 +2584,10 @@ function addConfigProposal(refs, ev) {
     );
 
     box.innerHTML =
-      '<div class="sr-line"><span class="sr-k">店铺</span>' +
-      '<span class="sr-v">' + (stores.length ? esc(stores.join(' / ')) : '未设置') + '</span>' +
+      '<div class="sr-line"><span class="sr-k">产品管理</span>' +
+      '<span class="sr-v">' + (stores.length ? esc(stores.join(' / ')) : '还没登记店铺') + '</span>' +
       '<button class="btn small ghost" type="button" data-productcfg>管理</button></div>' +
-      '<div class="sr-line"><span class="sr-k">产品</span><span class="sr-v sr-chips">' +
+      '<div class="sr-line"><span class="sr-k">跑哪些产品</span><span class="sr-v sr-chips">' +
       products
         .map(
           (p) =>
@@ -2584,7 +2596,10 @@ function addConfigProposal(refs, ev) {
         )
         .join('') +
       '</span><span class="sr-count" data-count></span></div>' +
-      '<div class="sr-line"><span class="sr-k">周</span><span class="sr-v">' + esc(lastWeekLabel()) + '</span></div>' +
+      '<div class="sr-line"><span class="sr-k">周区间</span><span class="sr-v sr-week">' +
+      '<input type="date" class="sr-date" data-week value="' + lastMondayISO() + '">' +
+      '<span class="sr-hint">默认上一整周（' + esc(lastWeekLabel()) + '），每天自动更新；选别的日期就出那一周</span>' +
+      '</span></div>' +
       (costMissing.length
         ? '<div class="sr-warn">⚠ ' + esc(costMissing.map((p) => p.spu).join('、')) +
           ' 成本四项未填，利润率不可信 <button class="btn small ghost" type="button" data-productcfg>去填</button></div>'
@@ -2598,6 +2613,17 @@ function addConfigProposal(refs, ev) {
     );
 
     // 已选数量实时更新：报告里"几个 SPU"不该写死
+    // 产品配置保存后，重新拉一次，把新加的产品渲染出来
+    const onCfgSaved = (e) => {
+      if (!document.body.contains(box)) {
+        window.removeEventListener('skillcfg:saved', onCfgSaved);
+        return;
+      }
+      if (e && e.detail && e.detail.skillId && e.detail.skillId !== skill.id) return;
+      loadSkillRunBox(modal, skill, cmds);
+    };
+    window.addEventListener('skillcfg:saved', onCfgSaved);
+
     const countEl = box.querySelector('[data-count]');
     const refreshCount = () => {
       const all = box.querySelectorAll('[data-spu]');
@@ -2657,7 +2683,9 @@ function addConfigProposal(refs, ev) {
         toast('已保存，开始运行');
         const panel = box.querySelector('[data-runpanel]');
         panel.classList.remove('hidden');
-        await doRunSkill(modal, skill, cmds[0], panel);
+        const weekEl = box.querySelector('[data-week]');
+        const extra = weekEl && weekEl.value ? { week: weekEl.value } : {};
+        await doRunSkill(modal, skill, cmds[0], panel, extra);
       } catch (err) {
         toast('没跑起来：' + err.message, true);
       } finally {
@@ -2667,10 +2695,10 @@ function addConfigProposal(refs, ev) {
     });
   }
 
-  async function doRunSkill(modal, skill, cmd, panel) {
+  async function doRunSkill(modal, skill, cmd, panel, extraParams) {
     const btn = panel.querySelector('[data-gorun]');
     const box = panel.querySelector('[data-runresult]');
-    const params = {};
+    const params = Object.assign({}, extraParams || {});
     panel.querySelectorAll('[data-param]').forEach((el) => {
       const v = el.value.trim();
       if (v) params[el.dataset.param] = v;
@@ -3362,6 +3390,12 @@ function addConfigProposal(refs, ev) {
         const bare = String(p.spu || '').replace(/^LS-/, '');
         return { ...p, target: td[p.spu] || td[bare] || {} };
       });
+      // 通知技能卡片：产品变了，重新渲染勾选列表
+      try {
+        window.dispatchEvent(new CustomEvent('skillcfg:saved', { detail: { skillId: state.skill.id } }));
+      } catch {
+        /* 忽略 */
+      }
       return true;
     } catch (err) {
       alert('保存失败：' + err.message);

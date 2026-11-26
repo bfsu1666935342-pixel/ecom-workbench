@@ -308,5 +308,5 @@ function runCommand({ skill, index, params, workspace, dataDir, onChild, onData 
   });
 }
 
-module.exports = {
+module.exports = { fillArgs, normalizeCommand,
   envFromMcp, commandList, runCommand, skillDir };
