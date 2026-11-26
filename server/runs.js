@@ -20,6 +20,30 @@ function push(run, item) {
   run.updatedAt = Date.now();
 }
 
+/**
+ * run.js 给的是「本次运行新产出的所有文件」，里面常混着一堆中间 json。
+ * 结果卡只留人真正要打开的：html > xlsx > md > csv > pdf，最多 3 个，去重。
+ */
+const SHOW_EXT = ['.html', '.xlsx', '.md', '.csv', '.pdf', '.png'];
+function pickOutputs(files) {
+  const list = (files || [])
+    .map((f) => (typeof f === 'string' ? f : f && (f.path || f.rel)))
+    .filter(Boolean);
+  const rank = (p) => {
+    const i = SHOW_EXT.indexOf(require('path').extname(p).toLowerCase());
+    return i === -1 ? 99 : i;
+  };
+  const seen = new Set();
+  return list
+    .filter((p) => {
+      if (seen.has(p)) return false;
+      seen.add(p);
+      return rank(p) < 99;
+    })
+    .sort((a, b) => rank(a) - rank(b))
+    .slice(0, 3);
+}
+
 function prune() {
   if (runs.size <= MAX_KEEP) return;
   const done = [...runs.values()]
@@ -78,7 +102,7 @@ function start({ skill, index, params, workspace, dataDir, sessionId, label }) {
       run.status = result && result.ok ? 'done' : 'error';
       run.result = Object.assign({ ok: false }, result || {});
       run.output = (result && result.output) || '';
-      run.files = (result && result.files) || [];
+      run.files = pickOutputs((result && result.files) || []);
       run.error = (result && result.error) || null;
       run.finishedAt = Date.now();
       run.child = null;

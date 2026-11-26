@@ -1672,7 +1672,15 @@
     refs.filesEl.append(card);
   }
 
-  function runFileUrl(rel, download) {
+  /** run.js 返回的 files 是相对路径字符串数组，统一成 {path,name} */
+function toFileRef(f) {
+  if (!f) return null;
+  if (typeof f === 'string') return { path: f, name: f.split('/').pop() };
+  const p = f.path || f.rel || '';
+  return { path: p, name: f.name || p.split('/').pop() };
+}
+
+function runFileUrl(rel, download) {
   return '/api/file?' + (download ? 'download=1&' : '') + 'path=' + encodeURIComponent(rel);
 }
 
@@ -1843,7 +1851,7 @@ async function runCardLive(card, ev, started) {
     // 收尾
     const ms = Date.now() - t0;
     const ok = st.status === 'done';
-    const files = (st.files || []).map((f) => ({ path: f.path || f.rel, name: f.name || f.path }));
+    const files = (st.files || []).map(toFileRef).filter(Boolean);
     const payload = {
       ok,
       skillId: st.skillId,

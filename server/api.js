@@ -10,6 +10,16 @@ const { readConfig, saveConfig, configFiles } = require('./skillconfig');
 const proposals = require('./proposals');
 const confirmations = require('./confirmations');
 const runs = require('./runs');
+
+/** run.js 返回的 files 是相对路径字符串数组，统一成 {path,name} */
+function toFileRef(f) {
+  if (!f) return null;
+  if (typeof f === 'string') {
+    return { path: f, name: f.split('/').pop() };
+  }
+  const p = f.path || f.rel || '';
+  return { path: p, name: f.name || p.split('/').pop() };
+}
 const updater = require('./update');
 const {
   sendJson,
@@ -421,7 +431,7 @@ const spusCache = new Map(); // 按店铺列 SPU 的缓存（10 分钟）
                   label: run.commandLabel,
                   ms: (run.finishedAt || Date.now()) - run.startedAt,
                   error: run.error || null,
-                  files: (run.files || []).map((f) => ({ path: f.path || f.rel, name: f.name || f.path })),
+                  files: (run.files || []).map(toFileRef),
                 },
               });
               s.updatedAt = Date.now();
