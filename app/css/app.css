@@ -1861,3 +1861,9 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 
 .sr-hint b { font-weight: 600; color: #222; font-variant-numeric: tabular-nums; }
 .sr-tip { margin: 2px 0 0 78px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+
+/* @ 菜单的键盘选中项 */
+.at-item.active {
+  background: #f0f4ff;
+  box-shadow: inset 2px 0 0 #2563eb;
+}

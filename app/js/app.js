@@ -566,6 +566,7 @@
         pickAgent(btn.dataset.at);
       });
     });
+    setAtActive(0);
   }
 
   function openSkillPicker() {
@@ -598,11 +599,41 @@
         updateSkillUI();
       });
     });
+    setAtActive(0);
+  }
+
+  // @ 菜单的键盘选中项
+  let atActive = 0;
+
+  function atItems() {
+    const menu = $('#atMenu');
+    if (!menu || menu.classList.contains('hidden')) return [];
+    return [...menu.querySelectorAll('.at-item')];
+  }
+
+  function setAtActive(index) {
+    const items = atItems();
+    if (!items.length) return;
+    atActive = Math.max(0, Math.min(items.length - 1, index));
+    items.forEach((el, i) => el.classList.toggle('active', i === atActive));
+    const cur = items[atActive];
+    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest' });
+  }
+
+  function pickAtActive() {
+    const items = atItems();
+    if (!items.length) return false;
+    const el = items[Math.max(0, Math.min(items.length - 1, atActive))];
+    if (!el) return false;
+    // 两个菜单都是监听 mousedown 触发的
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    return true;
   }
 
   function closeAtMenu() {
     const menu = $('#atMenu');
     if (menu) menu.classList.add('hidden');
+    atActive = 0;
   }
 
   function pickAgent(id) {
@@ -3844,7 +3875,33 @@ function addConfigProposal(refs, ev) {
       else renderAtMenu(q);
     });
     atInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeAtMenu();
+      const items = atItems();
+      if (!items.length) {
+        if (e.key === 'Escape') closeAtMenu();
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setAtActive(atActive + 1);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setAtActive(atActive - 1);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        pickAtActive();
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeAtMenu();
+      }
     });
     document.addEventListener('click', (e) => {
       const menu = $('#atMenu');
