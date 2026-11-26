@@ -85,6 +85,23 @@ function pickTarget(targets, product) {
   return { key: String(product.spu || product.id || ''), value: {} };
 }
 
+/**
+ * 用户/模型提交的产品里，如果连字段都没写，就沿用上一次的值。
+ * 显式写空（"" / 0）表示要清空，这里不拦。
+ */
+function mergeFromPrevious(rawItem, prev) {
+  if (!rawItem || typeof rawItem !== 'object') return rawItem;
+  if (!prev) return rawItem;
+  const out = Object.assign({}, rawItem);
+  if (!('competitor' in rawItem) && prev.competitor) out.competitor = prev.competitor;
+  if (!('price' in rawItem) && prev.price) out.price = prev.price;
+  if (!('store' in rawItem) && prev.store) out.store = prev.store;
+  if (!('rating' in rawItem) && prev.rating) out.rating = prev.rating;
+  if (!('title' in rawItem) && prev.title) out.title = prev.title;
+  if (!('site' in rawItem) && prev.site) out.site = prev.site;
+  return out;
+}
+
 function sanitizeProduct(raw) {
   const site = String(raw.site || 'US').trim().toUpperCase() || 'US';
   const spu = String(raw.spu || raw.id || '').trim();
@@ -204,9 +221,21 @@ function saveConfig(skill, payload, opts = {}) {
   const incoming = Array.isArray(payload.products) ? payload.products : [];
   if (incoming.length > MAX_ITEMS) throw Object.assign(new Error('产品太多（上限 ' + MAX_ITEMS + '）'), { status: 400 });
 
+  // 旧产品按 SPU 索引：模型没提交的字段（竞品、售价、店铺、评分）沿用旧值。
+  // 只有显式传了空值（"" 或 0）才算用户要清空。
+  const prevProducts = (() => {
+    const doc = current.files[files[0]];
+    return Array.isArray(doc && doc.products) ? doc.products : [];
+  })();
+  const oldBySpu = new Map();
+  for (const p of prevProducts) {
+    if (p && p.spu) oldBySpu.set(String(p.spu).trim().toUpperCase(), p);
+  }
+
   const products = [];
   const incomingTarget = new Map();
-  for (const raw of incoming) {
+  for (const rawItem of incoming) {
+    const raw = mergeFromPrevious(rawItem, oldBySpu.get(String((rawItem && (rawItem.spu || rawItem.id)) || '').trim().toUpperCase()));
     const item = sanitizeProduct(raw);
     if (!item.spu) throw Object.assign(new Error('SPU 不能为空'), { status: 400 });
     if (!item.parents.length) throw Object.assign(new Error('「' + item.spu + '」至少要有一个父体 ASIN'), { status: 400 });
