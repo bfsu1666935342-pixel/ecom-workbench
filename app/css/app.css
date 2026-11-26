@@ -1736,3 +1736,109 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   text-decoration: none;
 }
 .rc-file:hover { background: #f5f8ff; }
+/* ---------- 技能卡片：产出框架 / 怎么用 / 配置运行 ---------- */
+.skill-sections {
+  margin: 4px 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ss-row {
+  display: flex;
+  gap: 14px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.ss-row:last-child { border-bottom: 0; }
+.ss-row b {
+  flex: 0 0 76px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.ss-row span { flex: 1; color: #222; }
+
+.skill-howto {
+  margin: 6px 0 4px 18px;
+  padding: 0;
+  font-size: 13px;
+  color: #222;
+}
+.skill-howto li { margin: 4px 0; }
+.howto-note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+
+.skill-run {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fbfcfe;
+}
+.sr-loading { color: var(--muted); font-size: 13px; }
+.sr-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px dashed #eceef2;
+}
+.sr-line:last-of-type { border-bottom: 0; }
+.sr-k { flex: 0 0 40px; color: var(--muted); font-size: 12px; }
+.sr-v { flex: 1; min-width: 0; }
+.sr-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sr-chip input { margin: 0; }
+.sr-warn {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fdf7ea;
+  border: 1px solid #f0d9a8;
+  color: #7a5a12;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sr-actions { margin-top: 12px; display: flex; gap: 8px; }
+
+.skill-adv {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.skill-adv summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  list-style: none;
+}
+.skill-adv summary::-webkit-details-marker { display: none; }
+.skill-adv summary::before { content: '▸ '; }
+.skill-adv[open] summary::before { content: '▾ '; }
+
+.lastrun {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lastrun:empty { display: none; }
+.lr-k { color: var(--muted); }
+.lr-when { color: #444; font-variant-numeric: tabular-nums; }
+.lr-open { color: #1a56db; text-decoration: none; }
+.lr-open:hover { text-decoration: underline; }

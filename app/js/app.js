@@ -2386,9 +2386,66 @@ function addConfigProposal(refs, ev) {
 
   /* ================= 技能 ================= */
 
+  /** 上一整周（周一~周日）的区间文案 */
+  function lastWeekLabel() {
+    const now = new Date();
+    const dow = now.getDay() || 7;                 // 1=周一 … 7=周日
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - dow);           // 上周日
+    const monday = new Date(sunday);
+    monday.setDate(sunday.getDate() - 6);
+    const f = (d) => d.getMonth() + 1 + '-' + String(d.getDate()).padStart(2, '0');
+    return f(monday) + ' ~ ' + f(sunday) + '（上周）';
+  }
+
+  /** 技能卡片：产出框架 / 怎么用 / 配置与运行 */
   function openSkill(skill) {
     closeSidebar();
+    const cmds = Array.isArray(skill.commands) ? skill.commands : [];
+    const hasCfg = Array.isArray(skill.configFiles) && skill.configFiles.length > 0;
     const fields = Array.isArray(skill.fields) ? skill.fields : [];
+
+    // ① 产出框架
+    const sections = Array.isArray(skill.sections) ? skill.sections : [];
+    const secHtml = sections.length
+      ? '<h3>产出框架</h3><div class="skill-sections">' +
+        sections
+          .map(
+            (row) =>
+              '<div class="ss-row"><b>' + esc(row[0] || '') + '</b><span>' + esc(row[1] || '') + '</span></div>'
+          )
+          .join('') +
+        '</div>'
+      : '';
+
+    // ② 怎么用
+    const howto = Array.isArray(skill.howto) && skill.howto.length
+      ? skill.howto
+      : ['填店铺和产品 —— 只需一次', '勾选这次要跑的产品', '点运行，或者直接跟员工说'];
+    const howHtml =
+      '<h3>怎么用</h3><ol class="skill-howto">' +
+      howto.map((x) => '<li>' + esc(x) + '</li>').join('') +
+      '</ol>' +
+      '<p class="howto-note">两种方式等价：在下面改，或者直接跟员工聊。</p>';
+
+    // ③ 配置 + 运行
+    const runHtml = cmds.length
+      ? '<div class="skill-run" data-runbox><div class="sr-loading">正在读取配置…</div></div>' +
+        '<details class="skill-adv"><summary>高级：单独运行命令</summary><div class="run-list">' +
+        cmds
+          .map((c, i) => {
+            const need = Array.isArray(c.params) && c.params.length > 0;
+            return (
+              '<div class="run-item"><div class="run-main"><b>' + esc(c.label) + '</b>' +
+              (c.desc ? '<div class="run-desc">' + esc(c.desc) + '</div>' : '') +
+              '</div><button class="btn small ghost" type="button" data-run="' + i + '">' +
+              (need ? '填参数' : '运行') + '</button></div>'
+            );
+          })
+          .join('') +
+        '</div><div class="run-panel hidden" data-runpanel></div></details>'
+      : '';
+
     const fieldsHtml = fields.length
       ? '<h3>按需填几项（不填也能开始）</h3><div class="form-grid">' +
         fields
@@ -2403,58 +2460,24 @@ function addConfigProposal(refs, ev) {
           .join('') +
         '</div>'
       : '';
-    const starters = (skill.starters || [])
-      .map((s) => '<button class="starter" type="button" data-starter="' + esc(s) + '">' + esc(s) + '</button>')
-      .join('');
-
-    const cmds = Array.isArray(skill.commands) ? skill.commands : [];
-    const cmdHtml = cmds.length
-      ? '<h3>直接运行 ' + (Array.isArray(skill.configFiles) && skill.configFiles.length ? '<button class="btn small" type="button" data-productcfg style="margin-left:8px">配置产品</button>' : '') + '<button class="btn small ghost" type="button" data-openfolder style="margin-left:8px">打开配置文件夹</button></h3><div class="run-list">' +
-        cmds
-          .map((c, i) => {
-            const need = Array.isArray(c.params) && c.params.length > 0;
-            return (
-              '<div class="run-item"><div class="run-main"><b>' + esc(c.label) + '</b>' +
-              (c.desc ? '<div class="run-desc">' + esc(c.desc) + '</div>' : '') +
-              '</div><button class="btn small" type="button" data-run="' + i + '">' + (need ? '填参数' : '运行') + '</button></div>'
-            );
-          })
-          .join('') +
-        '</div><div class="run-panel hidden" data-runpanel></div>'
-      : '';
 
     const html =
       '<div class="modal-head"><div class="skill-hero"><div class="skill-no">' + skillNo(skill) + '</div>' +
       '<div><div class="skill-group-tag">' + esc(skill.group || '技能') + '</div><h2>' + esc(skill.title) + '</h2>' +
       '<div class="tag">' + esc(skill.tagline || '') + '</div></div></div>' +
       '<button class="modal-close" data-close type="button">×</button></div>' +
-      '<p class="skill-desc">' + esc(skill.description || '') + '</p>' +
-      (starters ? '<h3>常用问法</h3><div class="starter-list">' + starters + '</div>' : '') +
-      cmdHtml +
+      secHtml +
+      howHtml +
+      runHtml +
       fieldsHtml +
+      '<div class="lastrun" data-lastrun></div>' +
       '<div class="modal-actions"><button class="btn ghost" data-close type="button">取消</button>' +
       '<button class="btn primary" data-start type="button">用这个技能开始</button></div>';
 
     const close = showModal(html, { wide: true });
     const modal = close.modal;
-    modal.querySelector('[data-productcfg]')?.addEventListener('click', () => openProductConfig(skill));
-    modal.querySelector('[data-openfolder]')?.addEventListener('click', async (e) => {
-      const btn = e.currentTarget;
-      btn.disabled = true;
-      try {
-        const resp = await fetch('/api/skill/open', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ skillId: skill.id, sub: 'config' }),
-        });
-        const data = await resp.json();
-        if (!data.ok) alert('打不开：' + (data.error || '未知原因'));
-      } catch (err) {
-        alert('打不开：' + (err && err.message ? err.message : String(err)));
-      } finally {
-        btn.disabled = false;
-      }
-    });
+
+    // 高级里的单独命令
     modal.querySelectorAll('[data-run]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const cmd = cmds[Number(btn.dataset.run)];
@@ -2462,7 +2485,7 @@ function addConfigProposal(refs, ev) {
         const panel = modal.querySelector('[data-runpanel]');
         panel.classList.remove('hidden');
         panel.innerHTML =
-          '<div class="run-cmd-head">将要执行 <code>' + esc(cmd.run.join(' ')) + '</code></div>' +
+          '<div class="run-cmd-head">将要执行 <code>' + esc((cmd.run || []).join(' ')) + '</code></div>' +
           (cmd.params || [])
             .map(
               (p) =>
@@ -2476,12 +2499,32 @@ function addConfigProposal(refs, ev) {
         panel.querySelector('[data-gorun]').addEventListener('click', () => doRunSkill(modal, skill, cmd, panel));
       });
     });
-    modal.querySelectorAll('[data-starter]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        close();
-        applySkill(skill, {}, btn.dataset.starter);
-      });
-    });
+
+    if (hasCfg && cmds.length) loadSkillRunBox(modal, skill, cmds);
+
+    // 上次产出
+    fetch('/api/outputs')
+      .then((r) => r.json())
+      .then((data) => {
+        const items = (data.items || []).filter(
+          (it) => it.group === skill.id && ['html', 'md', 'xlsx', 'csv', 'pdf'].includes(it.ext)
+        );
+        if (!items.length) return;
+        const order = { html: 0, xlsx: 1, md: 2, csv: 3, pdf: 4 };
+        items.sort((x, y) => (order[x.ext] || 9) - (order[y.ext] || 9) || y.mtime - x.mtime);
+        const top = items.find((x) => x.ext === 'html') || items[0];
+        const when = new Date(top.mtime);
+        const el = modal.querySelector('[data-lastrun]');
+        if (!el) return;
+        el.innerHTML =
+          '<span class="lr-k">上次产出</span>' +
+          '<span class="lr-when">' + String(when.getMonth() + 1) + '-' + String(when.getDate()).padStart(2, '0') + ' ' +
+          String(when.getHours()).padStart(2, '0') + ':' + String(when.getMinutes()).padStart(2, '0') + '</span>' +
+          '<a class="lr-open" href="/api/file?path=' + encodeURIComponent(top.rel) + '" target="_blank" rel="noopener">' +
+          esc(top.name) + ' →</a>';
+      })
+      .catch(() => {});
+
     modal.querySelector('[data-start]').addEventListener('click', () => {
       const values = {};
       modal.querySelectorAll('[data-field]').forEach((el) => {
@@ -2494,6 +2537,121 @@ function addConfigProposal(refs, ev) {
       const first = modal.querySelector('[data-field]');
       if (first) first.focus();
     }, 60);
+  }
+
+  /** 卡片里的配置区：店铺 / 产品勾选 / 周区间 / 成本提醒 / 保存 + 运行 */
+  async function loadSkillRunBox(modal, skill, cmds) {
+    const box = modal.querySelector('[data-runbox]');
+    if (!box) return;
+    let cfg = null;
+    try {
+      cfg = await (await fetch('/api/skill/config?id=' + encodeURIComponent(skill.id))).json();
+    } catch {
+      cfg = null;
+    }
+    if (!cfg || !cfg.ok) {
+      box.innerHTML = '<div class="sr-line"><span class="sr-v">读不到配置</span>' +
+        '<button class="btn small ghost" type="button" data-productcfg>打开配置</button></div>';
+      const b = box.querySelector('[data-productcfg]');
+      if (b) b.addEventListener('click', () => openProductConfig(skill));
+      return;
+    }
+    const doc = (cfg.files && cfg.files['config/products.json']) || {};
+    const products = Array.isArray(doc.products) ? doc.products : [];
+    if (!products.length) {
+      box.innerHTML = '<div class="sr-line"><span class="sr-v">还没有登记产品</span>' +
+        '<button class="btn small primary" type="button" data-productcfg>去登记</button></div>';
+      const b = box.querySelector('[data-productcfg]');
+      if (b) b.addEventListener('click', () => openProductConfig(skill));
+      return;
+    }
+
+    const stores = [...new Set(products.map((p) => (p.store && p.store.alias) || '').filter(Boolean))];
+    const costMissing = products.filter(
+      (p) => p.enabled !== false && !Number(p.unit_cost) && !Number(p.first_leg) && !Number(p.fba_fee)
+    );
+
+    box.innerHTML =
+      '<div class="sr-line"><span class="sr-k">店铺</span>' +
+      '<span class="sr-v">' + (stores.length ? esc(stores.join(' / ')) : '未设置') + '</span>' +
+      '<button class="btn small ghost" type="button" data-productcfg>管理</button></div>' +
+      '<div class="sr-line"><span class="sr-k">产品</span><span class="sr-v sr-chips">' +
+      products
+        .map(
+          (p) =>
+            '<label class="sr-chip"><input type="checkbox" data-spu="' + esc(p.spu) + '"' +
+            (p.enabled !== false ? ' checked' : '') + '> ' + esc(p.spu) + '</label>'
+        )
+        .join('') +
+      '</span></div>' +
+      '<div class="sr-line"><span class="sr-k">周</span><span class="sr-v">' + esc(lastWeekLabel()) + '</span></div>' +
+      (costMissing.length
+        ? '<div class="sr-warn">⚠ ' + esc(costMissing.map((p) => p.spu).join('、')) +
+          ' 成本四项未填，利润率不可信 <button class="btn small ghost" type="button" data-productcfg>去填</button></div>'
+        : '') +
+      '<div class="sr-actions"><button class="btn primary" type="button" data-saverun>保存并运行</button>' +
+      '<button class="btn ghost" type="button" data-saveonly>只保存</button></div>' +
+      '<div class="run-panel hidden" data-runpanel><button type="button" data-gorun hidden></button><div data-runresult></div></div>';
+
+    box.querySelectorAll('[data-productcfg]').forEach((b) =>
+      b.addEventListener('click', () => openProductConfig(skill))
+    );
+
+    const save = async (notify) => {
+      const picked = new Set(
+        [...box.querySelectorAll('[data-spu]')]
+          .filter((el) => el.checked)
+          .map((el) => el.dataset.spu)
+      );
+      const next = products.map((p) => Object.assign({}, p, { enabled: picked.has(p.spu) }));
+      const resp = await fetch('/api/skill/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skillId: skill.id, products: next, mtimeMs: cfg.mtimeMs }),
+      });
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || '保存失败');
+      if (notify) toast('已保存：启用 ' + picked.size + ' / ' + products.length + ' 个产品');
+      return picked.size;
+    };
+
+    box.querySelector('[data-saveonly]').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = '保存中…';
+      try {
+        await save(true);
+      } catch (err) {
+        toast('没保存：' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '只保存';
+      }
+    });
+
+    box.querySelector('[data-saverun]').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = '保存中…';
+      try {
+        const n = await save(false);
+        if (!n) {
+          toast('至少要勾一个产品', true);
+          btn.disabled = false;
+          btn.textContent = '保存并运行';
+          return;
+        }
+        toast('已保存，开始运行');
+        const panel = box.querySelector('[data-runpanel]');
+        panel.classList.remove('hidden');
+        await doRunSkill(modal, skill, cmds[0], panel);
+      } catch (err) {
+        toast('没跑起来：' + err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '保存并运行';
+      }
+    });
   }
 
   async function doRunSkill(modal, skill, cmd, panel) {
