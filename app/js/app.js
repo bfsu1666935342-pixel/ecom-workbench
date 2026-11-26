@@ -1502,11 +1502,14 @@
       }
     }
 
+    if (msg.card && msg.card.kind !== 'text') {
+      body.append(runResultCardEl(msg.card));
+    }
+
     const content = document.createElement('div');
     content.className = 'md' + (live ? ' streaming' : '');
     content.innerHTML = msg.text ? MD.render(msg.text) : '';
-    if (!msg.text && !live) content.style.display = 'none';
-    body.append(content);
+    if (!msg.text && !live) content.style.display = 'none';    body.append(content);
     refs.contentEl = content;
 
     refs.sourcesEl = document.createElement('div');
@@ -1669,7 +1672,225 @@
     refs.filesEl.append(card);
   }
 
-  function addConfigProposal(refs, ev) {
+  function runFileUrl(rel, download) {
+  return '/api/file?' + (download ? 'download=1&' : '') + 'path=' + encodeURIComponent(rel);
+}
+
+function fmtDuration(ms) {
+  const secs = Math.round((Number(ms) || 0) / 1000);
+  if (secs < 60) return secs + ' 秒';
+  const min = Math.floor(secs / 60);
+  return min + ' 分 ' + (secs % 60) + ' 秒';
+}
+
+function notifyDone(title, body) {
+  try {
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission !== 'granted') return;
+    const n = new Notification(title, { body: body, silent: false });
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+  } catch {
+    /* 通知失败就算了 */
+  }
+}
+
+function askNotifyPermission() {
+  try {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission();
+  } catch {
+    /* 忽略 */
+  }
+}
+
+/** 结果卡（历史里恢复时也用它） */
+function runResultCardEl(card) {
+  const el = document.createElement('div');
+  el.className = 'run-card ' + (card.ok ? 'ok' : 'bad');
+  const files = Array.isArray(card.files) ? card.files : [];
+  const links = files.length
+    ? '<div class="rc-files">' +
+      files
+        .map(
+          (f) =>
+            '<a class="rc-file" href="' + runFileUrl(f.path, false) + '" target="_blank" rel="noopener">' +
+            esc(f.name || f.path) +
+            '</a>'
+        )
+        .join('') +
+      '</div>'
+    : '';
+  el.innerHTML =
+    '<div class="rc-head"><span class="rc-tag' + (card.ok ? ' ok' : ' bad') + '">' +
+    (card.ok ? '已完成' : '没跑成') +
+    '</span><span class="rc-title">' +
+    esc(card.skillTitle || card.skillId || '') +
+    ' · ' +
+    esc(card.label || '') +
+    '</span>' +
+    (card.ms ? '<span class="rc-ms">' + fmtDuration(card.ms) + '</span>' : '') +
+    '</div>' +
+    (card.error ? '<div class="rc-note bad">' + esc(card.error) + '</div>' : '') +
+    links;
+  return el;
+}
+
+/** 对话里弹出的「确认运行」卡：点了才真跑，跑的过程和结果都在这张卡里 */
+function addRunConfirm(refs, ev) {
+  if (!refs || !refs.filesEl) return;
+  const card = document.createElement('div');
+  card.className = 'run-card confirm';
+  card.innerHTML =
+    '<div class="rc-head"><span class="rc-tag">待确认</span>' +
+    '<span class="rc-title">' + esc(ev.skillTitle || ev.skillId || '') + ' · ' + esc(ev.label || '运行') + '</span></div>' +
+    (ev.reason ? '<div class="rc-note">' + esc(ev.reason) + '</div>' : '') +
+    '<div class="rc-note dim">跑起来会花几分钟，期间可以切走；跑完这里会变成结果卡，也会发系统通知。</div>' +
+    '<div class="rc-actions"><button class="btn small primary" type="button" data-run>确认运行</button>' +
+    '<button class="btn small ghost" type="button" data-skip>取消</button></div>';
+  refs.filesEl.style.display = '';
+  refs.filesEl.append(card);
+
+  const finish = (text, ok) => {
+    card.className = 'run-card ' + (ok ? 'ok' : 'bad');
+    card.innerHTML =
+      '<div class="rc-head"><span class="rc-tag' + (ok ? ' ok' : ' bad') + '">' +
+      (ok ? '已提交' : '已取消') +
+      '</span><span class="rc-title">' + esc(ev.skillTitle || '') + ' · ' + esc(ev.label || '') + '</span></div>' +
+      '<div class="rc-note">' + esc(text) + '</div>';
+  };
+
+  card.querySelector('[data-skip]').addEventListener('click', () => finish('没有运行，什么都没改。', false));
+
+  card.querySelector('[data-run]').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = '启动中…';
+    askNotifyPermission();
+    try {
+      const resp = await fetch('/api/skill/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          confirmId: ev.id,
+          sessionId: state.session ? state.session.id : null,
+        }),
+      });
+      const data = await resp.json();
+      if (!data.ok) {
+        finish('没跑起来：' + (data.error || '未知错误'), false);
+        return;
+      }
+      runCardLive(card, ev, data);
+    } catch (err) {
+      finish('没跑起来：' + err.message, false);
+    }
+  });
+}
+
+/** 轮询托管的运行，把进度写进卡里 */
+async function runCardLive(card, ev, started) {
+  const runId = started.runId;
+  const label = started.label || ev.label || '运行';
+  const title = started.skillTitle || ev.skillTitle || '';
+  let cursor = 0;
+  const t0 = Date.now();
+  const lines = [];
+
+  const paint = () => {
+    card.className = 'run-card running';
+    card.innerHTML =
+      '<div class="rc-head"><span class="rc-tag live">运行中</span>' +
+      '<span class="rc-title">' + esc(title) + ' · ' + esc(label) + '</span>' +
+      '<span class="rc-ms">' + fmtDuration(Date.now() - t0) + '</span></div>' +
+      '<pre class="rc-log">' + esc(lines.slice(-5).join('\n')) + '</pre>' +
+      '<div class="rc-actions"><button class="btn small ghost" type="button" data-cancel>取消运行</button></div>';
+    card.querySelector('[data-cancel]').addEventListener('click', async () => {
+      try {
+        await fetch('/api/skill/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: runId }),
+        });
+      } catch {
+        /* 忽略 */
+      }
+    });
+  };
+  paint();
+
+  const poll = async () => {
+    let st;
+    try {
+      const resp = await fetch('/api/skill/runstate?id=' + encodeURIComponent(runId) + '&cursor=' + cursor);
+      st = await resp.json();
+    } catch {
+      st = null;
+    }
+    if (!st || !st.ok) {
+      setTimeout(poll, 2000);
+      return;
+    }
+    cursor = st.cursor || cursor;
+    for (const line of st.lines || []) lines.push(line.text);
+    if (st.status === 'running') {
+      paint();
+      setTimeout(poll, 1500);
+      return;
+    }
+
+    // 收尾
+    const ms = Date.now() - t0;
+    const ok = st.status === 'done';
+    const files = (st.files || []).map((f) => ({ path: f.path || f.rel, name: f.name || f.path }));
+    const payload = {
+      ok,
+      skillId: st.skillId,
+      skillTitle: title,
+      label,
+      ms,
+      error: st.error || null,
+      files,
+    };
+    const el = runResultCardEl(payload);
+    card.className = 'run-card ' + (ok ? 'ok' : 'bad');
+    card.innerHTML = '';
+    card.append(el);
+    if (!ok && lines.length) {
+      const log = document.createElement('pre');
+      log.className = 'rc-log';
+      log.textContent = lines.slice(-12).join('\n');
+      card.append(log);
+    }
+
+    if (document.hidden) {
+      notifyDone(title + (ok ? ' 跑完了' : ' 没跑成'), (files[0] && files[0].name) || label);
+    }
+
+    // 落到会话历史里，刷新后还在
+    if (state.session && state.session.id) {
+      fetch('/api/session/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: state.session.id,
+          message: {
+            role: 'assistant',
+            text: '',
+            card: payload,
+          },
+        }),
+      }).catch(() => {});
+      if (Array.isArray(state.session.messages)) {
+        state.session.messages.push({ role: 'assistant', text: '', card: payload, ts: Date.now() });
+      }
+    }
+  };
+  setTimeout(poll, 1200);
+}
+
+function addConfigProposal(refs, ev) {
     if (!refs || !refs.filesEl) return;
     const card = document.createElement('div');
     card.className = 'cfg-proposal';

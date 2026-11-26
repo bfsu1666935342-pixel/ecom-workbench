@@ -7,6 +7,7 @@ const llm = require('./llm');
 const { ensureDir, inside, uid, formatBytes } = require('./util');
 const skillconfig = require('./skillconfig');
 const proposals = require('./proposals');
+const confirmations = require('./confirmations');
 const outputguard = require('./outputguard');
 
 const MAX_TOOL_RESULT = 60000;
@@ -215,11 +216,59 @@ function toolDefs(opts = {}) {
       },
     },
   );
+  // 读技能配置：让员工能准确回答「现在登记了哪些 SPU / 店铺 / 目标」
+  if (Array.isArray(opts.configSkills) && opts.configSkills.length) {
+    defs.push({
+      type: 'function',
+      function: {
+        name: 'read_skill_config',
+        description:
+          '读取某个技能当前的配置（产品列表、店铺、父体 ASIN、月目标、成本等）。' +
+          '用户问「现在配了哪些 SPU / 目标是多少」时先调它，不要猜。改配置用 update_skill_config。',
+        parameters: {
+          type: 'object',
+          properties: {
+            skillId: { type: 'string', description: '技能 id，例如 amazon-weekly-report' },
+          },
+          required: ['skillId'],
+        },
+      },
+    });
+  }
+
+  // 运行工具型技能：不直接跑，先发确认
+  const runnable = (Array.isArray(opts.skills) ? opts.skills : []).filter((x) => {
+    const cmds = (x.meta && Array.isArray(x.meta.commands) && x.meta.commands) || x.commands || [];
+    return cmds.length > 0;
+  });
+  if (runnable.length) {
+    defs.push({
+      type: 'function',
+      function: {
+        name: 'run_skill',
+        description:
+          '发起运行一个「工具型技能」的命令（例如生成周报、生成备货表）。' +
+          '调用后不会立刻执行：会向用户弹一张确认卡，用户点「确认运行」才真正开始，' +
+          '跑完结果卡会出现在对话里。调用前先确认用户要的周/参数，不要连着调两次。',
+        parameters: {
+          type: 'object',
+          properties: {
+            skillId: { type: 'string', description: '技能 id，例如 amazon-weekly-report' },
+            index: { type: 'number', description: '命令序号，从 0 开始（第 1 个命令是 0）' },
+            reason: { type: 'string', description: '一句话说明这次为什么要跑，会显示在确认卡上' },
+          },
+          required: ['skillId', 'index'],
+        },
+      },
+    });
+  }
+
   return defs;
 }
 
 class ToolRunner {
-  constructor({ workspace, dataDir, apiKey, baseUrl, emit, mcp, noReportFiles, skillTitle, skills, allowedSkills, configSkills, outputGuard }) {
+  constructor({ workspace, dataDir, apiKey, baseUrl, emit, mcp, noReportFiles, skillTitle, skills, allowedSkills, configSkills, outputGuard, sessionId }) {
+    this.sessionId = sessionId || null;
     this.noReportFiles = Boolean(noReportFiles);
     this.skillTitle = String(skillTitle || '');
     this.skills = Array.isArray(skills) ? skills : [];
@@ -256,6 +305,10 @@ class ToolRunner {
           return this.listFiles(args);
         case 'update_skill_config':
           return this.updateSkillConfig(args);
+        case 'read_skill_config':
+          return this.readSkillConfig(args);
+        case 'run_skill':
+          return this.requestRunSkill(args);
         case 'check_output':
           return this.checkOutput(args);
         case 'load_skill':
@@ -392,6 +445,93 @@ class ToolRunner {
         '已生成修改提案，用户点「应用」后才写盘：\n' +
         lines.map((x) => '- ' + x).join('\n') +
         '\n\n请告诉用户看一眼清单、点「应用」即生效；不对就说哪里不对，你重新提案。不要让他手改文件。',
+    };
+  }
+
+  readSkillConfig(args) {
+    const id = String(args.skillId || '').trim();
+    if (!id) return { ok: false, content: '缺少 skillId' };
+    const skill = this.configSkills.find((s) => s.id === id);
+    if (!skill) return { ok: false, content: '这个技能没有可读配置：' + id };
+    let snap;
+    try {
+      snap = skillconfig.readConfig(skill);
+    } catch (err) {
+      return { ok: false, content: '读配置失败：' + err.message };
+    }
+    if (!snap) return { ok: false, content: '读不到现有配置' };
+    const files = snap.files || {};
+    const products = files['config/products.json'] || {};
+    const targets = files['config/targets.json'] || {};
+    const list = Array.isArray(products.products) ? products.products : [];
+    const rows = list.map((p) => {
+      const key = p.spu || p.id || '';
+      const goal = (targets && (targets[key] || targets[p.spu])) || {};
+      return {
+        spu: p.spu,
+        title: p.title || '',
+        site: p.site || 'US',
+        store: (p.store && (p.store.alias || p.store.sid)) || '',
+        parents: (p.parents || []).map((x) => x.asin || x).filter(Boolean),
+        enabled: p.enabled !== false,
+        targets: goal,
+      };
+    });
+    return {
+      ok: true,
+      content:
+        '当前配置（' + skill.title + '）：共 ' + rows.length + ' 个产品\n' +
+        JSON.stringify(rows, null, 1).slice(0, 12000) +
+        '\n\n回答用户时按这个说，不要编。要改就用 update_skill_config 提提案。',
+    };
+  }
+
+  requestRunSkill(args) {
+    const id = String(args.skillId || '').trim();
+    const index = Number(args.index);
+    if (!id) return { ok: false, content: '缺少 skillId' };
+    const skill = this.skills.find((s) => s.id === id);
+    if (!skill) return { ok: false, content: '找不到这个技能：' + id };
+    const cmds =
+      (skill.meta && Array.isArray(skill.meta.commands) && skill.meta.commands) ||
+      (Array.isArray(skill.commands) ? skill.commands : []);
+    if (!cmds.length) return { ok: false, content: '这个技能没有可运行的命令，只能读它的方法自己写。' };
+    if (!Number.isInteger(index) || index < 0 || index >= cmds.length) {
+      return {
+        ok: false,
+        content:
+          '命令序号不对。这个技能有 ' + cmds.length + ' 个命令：\n' +
+          cmds.map((c, i) => i + ': ' + c.label).join('\n'),
+      };
+    }
+    const cmd = cmds[index];
+    const reason = String(args.reason || '').trim();
+    const record = confirmations.create({
+      kind: 'run_skill',
+      skillId: skill.id,
+      skillTitle: skill.title || skill.id,
+      index,
+      label: cmd.label || '运行',
+      reason,
+      sessionId: this.sessionId || null,
+    });
+    this.emit({
+      t: 'confirm',
+      id: record.id,
+      kind: 'run_skill',
+      skillId: skill.id,
+      skillTitle: record.skillTitle,
+      index,
+      label: record.label,
+      reason,
+      timeoutSec: Math.round((cmd.timeoutMs || 0) / 1000) || null,
+    });
+    return {
+      ok: true,
+      content:
+        '已向用户发出确认卡：运行「' + record.skillTitle + ' · ' + record.label + '」。' +
+        '等用户点「确认运行」后才会真正开始；这期间不要重复调用 run_skill，也不要让用户自己去点技能页。' +
+        '跑完后结果卡会自动出现在对话里，你再根据结果说话。',
     };
   }
 

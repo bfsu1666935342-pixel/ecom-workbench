@@ -1686,3 +1686,53 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .cfg-estimate { font-size: 12px; color: var(--muted); padding: 10px 2px 0; }
 .cfg-estimate b { color: var(--ink); font-weight: 600; }
 .cfg-estimate.warn { color: var(--warn, #b45309); }
+
+/* ---------- 对话里的运行卡（确认 / 进度 / 结果） ---------- */
+.run-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 8px 0;
+  background: #fff;
+  font-size: 13px;
+}
+.run-card.confirm { border-color: #d8dde6; background: #fbfcfe; }
+.run-card.running { border-color: #cfd9ea; }
+.run-card.ok { border-color: #cfe9d8; }
+.run-card.bad { border-color: #f2d2d2; }
+.rc-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rc-tag { font-size: 11px; padding: 1px 7px; border-radius: 5px; background: #eef0f3; color: #555; }
+.rc-tag.ok { background: #eefaf1; color: #15803d; }
+.rc-tag.bad { background: #fdecec; color: #b91c1c; }
+.rc-tag.live { background: #eef4ff; color: #2563eb; }
+.rc-title { font-weight: 600; }
+.rc-ms { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+.rc-note { margin-top: 6px; color: #333; }
+.rc-note.dim { color: var(--muted); font-size: 12px; }
+.rc-note.bad { color: #b91c1c; }
+.rc-actions { margin-top: 10px; display: flex; gap: 8px; }
+.rc-log {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  background: #f7f8fa;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #444;
+  max-height: 150px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.rc-files { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+.rc-file {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 12px;
+  color: #1a56db;
+  text-decoration: none;
+}
+.rc-file:hover { background: #f5f8ff; }

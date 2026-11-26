@@ -8,6 +8,8 @@ const { runTurn } = require('./agent');
 const { commandList, runCommand } = require('./run');
 const { readConfig, saveConfig, configFiles } = require('./skillconfig');
 const proposals = require('./proposals');
+const confirmations = require('./confirmations');
+const runs = require('./runs');
 const updater = require('./update');
 const {
   sendJson,
@@ -338,6 +340,162 @@ const spusCache = new Map(); // 按店铺列 SPU 的缓存（10 分钟）
       return true;
     }
     // 技能自带命令：只跑 skill.json 里声明过的入口，模型不能临时拼命令行
+    // 对话里发起运行：先确认，再由服务端托管跑（关页面也不断）
+    if (pathname === '/api/skill/start' && req.method === 'POST') {
+      try {
+        const body = await readJsonBody(req, 256 * 1024);
+        let skillId = String(body.skillId || '').trim();
+        let index = Number(body.index);
+        let params = body.params || {};
+        let label = '';
+        if (body.confirmId) {
+          const record = confirmations.take(String(body.confirmId));
+          if (!record) {
+            sendJson(res, 200, { ok: false, error: '这张确认卡过期了，让 Penny 重新发起一次' });
+            return true;
+          }
+          skillId = record.skillId;
+          index = record.index;
+          params = record.params || {};
+          label = record.label || '';
+        }
+        const skill = skillById(skillId);
+        if (!skill) {
+          sendJson(res, 404, { ok: false, error: '找不到技能' });
+          return true;
+        }
+        const cmds =
+          (skill.meta && Array.isArray(skill.meta.commands) && skill.meta.commands) ||
+          (Array.isArray(skill.commands) ? skill.commands : []);
+        if (!Number.isInteger(index) || index < 0 || index >= cmds.length) {
+          sendJson(res, 400, {
+            ok: false,
+            error: '命令序号不对（这个技能有 ' + cmds.length + ' 个命令）',
+          });
+          return true;
+        }
+        if (busy.has('run:' + skill.id)) {
+          sendJson(res, 409, { ok: false, error: '这个技能正在运行，等它跑完' });
+          return true;
+        }
+        const need = Array.isArray(skill.meta && skill.meta.requiresEnv) ? skill.meta.requiresEnv : [];
+        if (need.length) {
+          const have = require('./run').envFromMcp(store.dataDir);
+          const missing = need.filter((k) => !have[k]);
+          if (missing.length) {
+            sendJson(res, 200, {
+              ok: false,
+              error:
+                '这个技能需要「' + missing.join(' / ') + '」，现在没有。到侧边栏「数据源」里配好再跑。',
+              missing,
+            });
+            return true;
+          }
+        }
+        busy.add('run:' + skill.id);
+        const started = runs.start({
+          skill,
+          index,
+          params,
+          workspace: store.workspace,
+          dataDir: store.dataDir,
+          sessionId: body.sessionId || null,
+          label,
+        });
+        // 跑完把结果卡写进会话：关掉页面再回来也看得到
+        const startedRun = runs.get(started.id);
+        if (startedRun && body.sessionId) {
+          startedRun.onFinish = (run) => {
+            try {
+              const s = store.getSession(String(body.sessionId));
+              if (!s) return;
+              s.messages = Array.isArray(s.messages) ? s.messages : [];
+              s.messages.push({
+                role: 'assistant',
+                text: '',
+                ts: Date.now(),
+                card: {
+                  ok: run.status === 'done',
+                  skillId: run.skillId,
+                  skillTitle: run.skillTitle,
+                  label: run.commandLabel,
+                  ms: (run.finishedAt || Date.now()) - run.startedAt,
+                  error: run.error || null,
+                  files: (run.files || []).map((f) => ({ path: f.path || f.rel, name: f.name || f.path })),
+                },
+              });
+              s.updatedAt = Date.now();
+              store.saveSession(s);
+            } catch (err) {
+              console.warn('[runs] 写会话失败：' + (err && err.message));
+            }
+          };
+        }
+        // 跑完释放锁
+        const timer = setInterval(() => {
+          const st = runs.get(started.id);
+          if (!st || st.status !== 'running') {
+            clearInterval(timer);
+            busy.delete('run:' + skill.id);
+          }
+        }, 1500);
+        if (timer.unref) timer.unref();
+        sendJson(res, 200, {
+          ok: true,
+          runId: started.id,
+          skillId: skill.id,
+          skillTitle: skill.title || skill.id,
+          index,
+          label: label || (cmds[index] && cmds[index].label) || '运行',
+        });
+      } catch (err) {
+        sendJson(res, 200, { ok: false, error: friendlyError(err) });
+      }
+      return true;
+    }
+
+    if (pathname === '/api/skill/runstate' && req.method === 'GET') {
+      const st = runs.state(url.searchParams.get('id'), Number(url.searchParams.get('cursor') || 0));
+      sendJson(res, 200, st);
+      return true;
+    }
+
+    if (pathname === '/api/skill/cancel' && req.method === 'POST') {
+      try {
+        const body = await readJsonBody(req, 64 * 1024);
+        const out = runs.cancel(String(body.id || ''));
+        sendJson(res, 200, out);
+      } catch (err) {
+        sendJson(res, 200, { ok: false, error: friendlyError(err) });
+      }
+      return true;
+    }
+
+    // 往会话里补一条消息（跑完的结果卡要能留在历史里）
+    if (pathname === '/api/session/message' && req.method === 'POST') {
+      try {
+        const body = await readJsonBody(req, 512 * 1024);
+        const session = store.getSession(String(body.sessionId || ''));
+        if (!session) {
+          sendJson(res, 404, { ok: false, error: '找不到会话' });
+          return true;
+        }
+        const msg = body.message && typeof body.message === 'object' ? body.message : null;
+        if (!msg || !msg.role) {
+          sendJson(res, 400, { ok: false, error: '缺少 message' });
+          return true;
+        }
+        session.messages = Array.isArray(session.messages) ? session.messages : [];
+        session.messages.push(Object.assign({ ts: Date.now() }, msg));
+        session.updatedAt = Date.now();
+        store.saveSession(session);
+        sendJson(res, 200, { ok: true });
+      } catch (err) {
+        sendJson(res, 200, { ok: false, error: friendlyError(err) });
+      }
+      return true;
+    }
+
     if (pathname === '/api/skill/run' && req.method === 'POST') {
       let body;
       try {

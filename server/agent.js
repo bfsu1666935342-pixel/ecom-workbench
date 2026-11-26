@@ -109,7 +109,9 @@ function systemPrompt({ cfg, skill, agent, skills, search, hasMcp, canConfig }) 
       '## 硬约束（优先级最高，不能违反）',
       '这个技能的所有报告都由脚本渲染，你**不得自己写 HTML、表格或任何报告文件**，也不得把数据拼成文件冒充报告。',
 '用户就在工作台界面里。**不要给用户贴命令行**（例如 scripts\\run.cmd ...），也不要让他开终端、装 Python——这些都不需要他做。',
-      '要跑报告时，说：点技能卡片上的「直接运行」，然后点「某个按钮」，跑完在工作区「技能产出」里取文件。',
+      '要跑报告时，优先调用 run_skill：它会给用户弹一张确认卡，用户点「确认运行」后服务端开始跑，跑完结果卡会出现在对话里（带打开/下载）。',
+      '只有在用户明确说「我自己去技能页跑」时才让他点技能卡片上的「直接运行」。不要说「你去技能产出里找文件」。',
+      '跑之前可以用 read_skill_config 确认当前登记的 SPU、店铺、目标，别猜；要改就用 update_skill_config 提提案。',
       '按钮名字以技能正文里的「可直接运行的命令」为准，说人话（比如「① 登记一个 SPU」），不要说参数写法。',
       '用户已经说明身份的数据（比如「这是领星的 SPU」）就按它处理，不要反复质疑口径；拿不准就先用最小成本试一次。',
       '你可以解释每个按钮做什么、要填什么参数、数据口径是什么，但不能产出报告。',
@@ -262,6 +264,7 @@ async function runTurn(opts) {
     outputGuard,
     noReportFiles: Boolean(skill && skill.runOnly),
     skillTitle: skill ? skill.title : '',
+    sessionId: session ? session.id : null,
     emit: (ev) => {
       if (ev && ev.t === 'sources') {
         for (const item of ev.items || []) {
