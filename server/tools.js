@@ -484,8 +484,8 @@ class ToolRunner {
     return {
       ok: true,
       content:
-        '知识库命中 ' + items.length + ' 条（按我们的口径办）：\n' +
-        items.map((it, i) => i + 1 + '. [' + it.category + '] ' + it.content + (it.note ? '（备注：' + it.note + '）' : '')).join('\n'),
+        '知识库命中 ' + items.length + ' 条（按我们的口径办；引用时用行首的 id）：\n' +
+        items.map((it, i) => i + 1 + '. [' + it.id + '] [' + it.category + '] ' + it.content + (it.note ? '（备注：' + it.note + '）' : '')).join('\n'),
     };
   }
 
