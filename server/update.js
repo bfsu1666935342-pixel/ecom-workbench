@@ -333,6 +333,15 @@ function startRestart(appRoot) {
     'start "" "' + nodeExe + '" "' + path.join(appRoot, 'server', 'main.js') + '" --no-open',
   ];
   fs.writeFileSync(script, lines.join('\r\n'), 'utf8');
+  try {
+    fs.appendFileSync(
+      path.join(appRoot, 'data', 'restart.log'),
+      new Date().toISOString() + ' restart -> ' + nodeExe + ' | ' + path.join(appRoot, 'server', 'main.js') + '\n',
+      'utf8'
+    );
+  } catch {
+    /* 日志失败不影响重启 */
+  }
   const child = spawn('cmd.exe', ['/c', script], {
     detached: true,
     stdio: 'ignore',

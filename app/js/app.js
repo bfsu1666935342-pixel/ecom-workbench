@@ -3557,12 +3557,30 @@ function addConfigProposal(refs, ev) {
       '<div class="s-help">当前 v' + esc(state.cfg ? state.cfg.version : '?') + '。检查到新版本可以在应用内直接下载、自动重启。</div>' +
       '<div class="upd-state" id="updState"></div></div>' +
       '<div class="s-control"><button class="btn" id="updCheck" type="button">检查更新</button>' +
-      '<button class="btn primary hidden" id="updApply" type="button">下载并更新</button></div></div>' +
+      '<button class="btn primary hidden" id="updApply" type="button">下载并更新</button>' +
+      '<button class="btn ghost" id="updRestart" type="button">重启生效</button></div></div>' +
       '<div class="upd-progress hidden" id="updProgress"><div class="upd-bar"><span id="updBar"></span></div><div class="upd-msg" id="updMsg"></div></div>' +
       '<div class="modal-actions"><span class="left" style="font-size:10.5px;color:var(--faint);align-self:center">' + esc(state.cfg ? state.cfg.brand + ' v' + state.cfg.version : '') + '</span>' +
       '<button class="btn ghost" data-close type="button">取消</button><button class="btn primary" id="saveSet" type="button">保存</button></div>';
 
     const close = showModal(html, { wide: true });
+    // ---- 重启生效（更新完版本没变时用） ----
+    const restartBtn = document.getElementById('updRestart');
+    if (restartBtn) {
+      restartBtn.addEventListener('click', async () => {
+        restartBtn.disabled = true;
+        restartBtn.textContent = '重启中…';
+        try {
+          await fetch('/api/restart', { method: 'POST' });
+          toast('已发出重启，6 秒后自动刷新');
+          setTimeout(() => location.reload(), 6000);
+        } catch (err) {
+          toast('重启失败：' + err.message, true);
+          restartBtn.disabled = false;
+          restartBtn.textContent = '重启生效';
+        }
+      });
+    }
     // ---- 版本与更新 ----
     const updState = $('#updState');
     const updApply = $('#updApply');
