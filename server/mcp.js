@@ -7,7 +7,7 @@ const PROTOCOL = '2024-11-05';
 // 所有 MCP 服务加起来的工具上限。原来是 40，SIF(37) 就吃掉大半，
 // Sorftime 那种上百个工具的服务会一个都进不来，所以放大到 260。
 // 太多会占上下文，真觉得慢再按服务裁剪。
-const MAX_TOOLS = 260;
+const MAX_TOOLS = 320;
 
 const PRESETS = [
   {

@@ -1917,3 +1917,5 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .kb-empty-sub { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
 .kb-empty-cats { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
 .kb-empty-cats span { border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; font-size: 12px; color: #444; background: #fff; }
+
+.mcp-warn { color: #7a5a12; background: #fdf7ea; border: 1px solid #f0d9a8; border-radius: 8px; padding: 8px 12px; margin-top: 6px; }
