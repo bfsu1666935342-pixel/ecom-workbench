@@ -240,6 +240,10 @@ function runCommand({ skill, index, params, workspace, dataDir, onChild, onData 
     let injected = {};
     try {
       injected = envFromMcp(dataDir);
+      injected = Object.assign({}, injected, {
+        ECOM_WORKSPACE: workspace,
+        ECOM_DATA: dataDir,
+      });
       child = spawnFor(exe, args, dir, injected);
       if (typeof onChild === 'function') {
         try {
