@@ -320,37 +320,36 @@ async function applyUpdate({ appRoot, dryRun, restart }) {
 
 /* 起一个脱离的脚本：等本进程退出后重新启动 */
 function startRestart(appRoot) {
-  // 以前调 Start.bat，那套是给打包版写的（要 runtime\node\node.exe），
-  // 在代码目录里跑就起不来，结果「文件更新了、进程还是老的」。
-  // 现在直接用 node 起 server/main.js，不再依赖 bat。
   const runtimeNode = path.join(appRoot, 'runtime', 'node', 'node.exe');
   const nodeExe = fs.existsSync(runtimeNode) ? runtimeNode : process.execPath;
-  const script = path.join(os.tmpdir(), 'ecom-restart-' + Date.now() + '.cmd');
+  const mainJs = path.join(appRoot, 'server', 'main.js');
+  const logFile = path.join(appRoot, 'data', 'restart.log');
+  let port = 7871;
+  try {
+    port = Number(require(path.join(appRoot, 'config.json')).port) || 7871;
+  } catch {
+    /* 用默认端口 */
+  }
+  const ps = (cmd) => 'powershell -NoProfile -ExecutionPolicy Bypass -Command "' + cmd + '"';
+
   const lines = [
     '@echo off',
-    'ping 127.0.0.1 -n 4 >nul',
+    'ping 127.0.0.1 -n 3 >nul',
     'cd /d "' + appRoot + '"',
-    'start "" "' + nodeExe + '" "' + path.join(appRoot, 'server', 'main.js') + '" --no-open',
+    // 第一次尝试
+    ps("Start-Process -FilePath '" + nodeExe + "' -ArgumentList '" + mainJs + "','--no-open' -WorkingDirectory '" + appRoot + "' -WindowStyle Hidden"),
+    'ping 127.0.0.1 -n 7 >nul',
+    // 检查端口，没起来再试一次
+    ps("if (-not (Test-NetConnection -ComputerName 127.0.0.1 -Port " + port + " -InformationLevel Quiet -WarningAction SilentlyContinue)) { Start-Process -FilePath '" + nodeExe + "' -ArgumentList '" + mainJs + "','--no-open' -WorkingDirectory '" + appRoot + "' -WindowStyle Hidden; Add-Content -Path '" + logFile + "' -Value ((Get-Date -Format o) + ' retry started') }"),
   ];
+  const script = path.join(os.tmpdir(), 'ecom-restart-' + Date.now() + '.cmd');
   fs.writeFileSync(script, lines.join('\r\n'), 'utf8');
   try {
-    fs.appendFileSync(
-      path.join(appRoot, 'data', 'restart.log'),
-      new Date().toISOString() + ' restart -> ' + nodeExe + ' | ' + path.join(appRoot, 'server', 'main.js') + '\n',
-      'utf8'
-    );
-  } catch {
-    /* 日志失败不影响重启 */
-  }
-  const child = spawn('cmd.exe', ['/c', script], {
-    detached: true,
-    stdio: 'ignore',
-    windowsHide: true,
-  });
+    fs.appendFileSync(logFile, new Date().toISOString() + ' restart -> ' + nodeExe + ' | ' + mainJs + '\n', 'utf8');
+  } catch {}
+  const child = spawn('cmd.exe', ['/c', script], { detached: true, stdio: 'ignore', windowsHide: true });
   child.unref();
-  setTimeout(() => {
-    process.exit(0);
-  }, 1000);
+  setTimeout(() => process.exit(0), 900);
 }
 
 /** 供 /api/restart 用：直接重启当前实例 */
