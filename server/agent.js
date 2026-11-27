@@ -38,8 +38,38 @@ function nowText() {
   return get('year') + '-' + get('month') + '-' + get('day') + ' ' + get('weekday') + ' ' + get('hour') + ':' + get('minute') + '（北京时间）';
 }
 
-function systemPrompt({ cfg, skill, agent, skills, search, hasMcp, canConfig }) {
+function systemPrompt({ cfg, skill, agent, skills, search, hasMcp, canConfig, knowledge }) {
   const lines = [];
+
+  // 知识库默认注入：小库直接给全文，大库给索引；按员工范围过滤
+  const kbLines = (() => {
+    if (!knowledge || !knowledge.length) return [];
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const today = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+    const live = knowledge.filter(
+      (it) => !it.deleted && (!it.effective || it.effective <= today) && (!it.expires || it.expires >= today)
+    );
+    if (!live.length) return [];
+    const full = live.map((it) => '- [' + it.id + '] [' + it.category + '] ' + it.content).join('\n');
+    const out = [];
+    out.push('');
+    out.push('# 知识库（我们自己的口径，优先级高于通用做法）');
+    if (full.length <= 8000) {
+      out.push('');
+      out.push(full);
+      out.push('');
+      out.push('以上是全部生效条目。需要引用某条时，用方括号里的 id（style_refs 等字段只能填这个 id）。');
+    } else {
+      out.push('');
+      out.push('共 ' + live.length + ' 条（太长，只给索引）。需要细节时调 search_knowledge。');
+      for (const it of live.slice(0, 120)) {
+        out.push('- [' + it.id + '] [' + it.category + '] ' + String(it.content).slice(0, 40));
+      }
+    }
+    return out;
+  })();
+  lines.push(...kbLines);
   lines.push(
     '你是「' + cfg.brand + '」内置的亚马逊跨境电商运营 AI，服务中国卖家，覆盖选品、Listing、关键词、广告、竞品、差评、利润、库存、合规、客服等日常运营工作。',
     '',
@@ -246,6 +276,16 @@ async function runTurn(opts) {
         search: Boolean(options.search),
         hasMcp: mcpDefs.length > 0,
         canConfig: configSkills.length > 0,
+        knowledge: (() => {
+          try {
+            const { Knowledge, AGENT_SCOPES } = require('./knowledge');
+            const all = new Knowledge(store.dataDir).list({});
+            const allow = agent && AGENT_SCOPES[agent.id];
+            return allow ? all.filter((it) => allow.includes(it.category)) : all;
+          } catch {
+            return [];
+          }
+        })(),
       }),
     },
     ...session.api,
