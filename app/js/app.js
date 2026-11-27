@@ -771,6 +771,8 @@
     $('#agentsView').classList.toggle('hidden', view !== 'agents');
     $('#mcpView').classList.toggle('hidden', view !== 'mcp');
     $('#outputsView').classList.toggle('hidden', view !== 'outputs');
+    const kbv = $('#knowledgeView');
+    if (kbv) kbv.classList.toggle('hidden', view !== 'knowledge');
     $$('.nav-item').forEach((btn) => btn.classList.toggle('active', btn.dataset.view === view));
     scheduleNavGlass();
     if (view === 'chat') {
@@ -787,6 +789,10 @@
       updateSkillUI();
       renderSkillFilters();
       renderSkillsPage();
+    } else if (view === 'knowledge') {
+      $('#chatTitle').textContent = '知识库';
+      bindKnowledge();
+      loadKnowledge();
     } else if (view === 'mcp') {
       $('#chatTitle').textContent = '数据源';
       updateSkillUI();
@@ -3885,6 +3891,150 @@ function addConfigProposal(refs, ev) {
   }
 
   /* ================= 事件 ================= */
+
+  // ---------------- 知识库 ----------------
+  const kb = { items: [], categories: [], sources: [], filter: '', q: '' };
+
+  async function loadKnowledge() {
+    try {
+      const resp = await fetch('/api/knowledge' + (kb.q ? '?q=' + encodeURIComponent(kb.q) : ''));
+      const data = await resp.json();
+      if (!data.ok) return;
+      kb.items = data.items || [];
+      kb.categories = data.categories || [];
+      kb.sources = data.sources || [];
+      renderKnowledge();
+      const count = document.getElementById('navKnowledgeCount');
+      if (count) count.textContent = String(kb.items.length);
+    } catch {
+      /* 忽略 */
+    }
+  }
+
+  function renderKnowledge() {
+    const list = document.getElementById('kbList');
+    if (!list) return;
+    const catSel = document.getElementById('kbCategory');
+    const srcSel = document.getElementById('kbSource');
+    if (catSel && !catSel.options.length) {
+      catSel.innerHTML = kb.categories.map((c) => '<option>' + esc(c) + '</option>').join('');
+    }
+    if (srcSel && !srcSel.options.length) {
+      srcSel.innerHTML = kb.sources.map((c) => '<option>' + esc(c) + '</option>').join('');
+    }
+    const filters = document.getElementById('kbFilters');
+    if (filters) {
+      filters.innerHTML = ['', ...kb.categories]
+        .map(
+          (c) =>
+            '<button class="kb-chip' + (kb.filter === c ? ' active' : '') + '" type="button" data-kbcat="' +
+            esc(c) + '">' + (c || '全部') + '</button>'
+        )
+        .join('');
+      filters.querySelectorAll('[data-kbcat]').forEach((b) =>
+        b.addEventListener('click', () => {
+          kb.filter = b.dataset.kbcat || '';
+          renderKnowledge();
+        })
+      );
+    }
+    const items = kb.items.filter((x) => (kb.filter ? x.category === kb.filter : true));
+    if (!items.length) {
+      list.innerHTML = '<div class="kb-empty">还没有知识点。上面写一条试试。</div>';
+      return;
+    }
+    list.innerHTML = items
+      .map(
+        (it) =>
+          '<div class="kb-item" data-id="' + it.id + '">' +
+          '<div class="kb-meta"><span class="kb-tag">' + esc(it.category) + '</span>' +
+          '<span class="kb-date">生效 ' + esc(it.effective || '-') + (it.expires ? ' · 失效 ' + esc(it.expires) : '') + '</span>' +
+          '<span class="kb-src">' + esc(it.source || '手写') + '</span></div>' +
+          '<div class="kb-body">' + esc(it.content) + '</div>' +
+          (it.note ? '<div class="kb-note">备注：' + esc(it.note) + '</div>' : '') +
+          '<div class="kb-acts"><button class="btn small ghost" type="button" data-kbedit>编辑</button>' +
+          '<button class="btn small ghost" type="button" data-kbdel>删除</button></div>' +
+          '</div>'
+      )
+      .join('');
+
+    list.querySelectorAll('.kb-item').forEach((el) => {
+      const id = el.dataset.id;
+      const item = kb.items.find((x) => x.id === id);
+      if (!item) return;
+      el.querySelector('[data-kbdel]').addEventListener('click', async () => {
+        if (!confirm('删除这条知识？（软删除，文件里还留着）')) return;
+        await fetch('/api/knowledge?id=' + encodeURIComponent(id), { method: 'DELETE' });
+        loadKnowledge();
+      });
+      el.querySelector('[data-kbedit]').addEventListener('click', async () => {
+        const content = prompt('内容', item.content);
+        if (content === null) return;
+        const note = prompt('备注（可留空）', item.note || '');
+        if (note === null) return;
+        await fetch('/api/knowledge', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, content, note }),
+        });
+        loadKnowledge();
+      });
+    });
+  }
+
+  async function addKnowledge() {
+    const btn = document.getElementById('kbAdd');
+    const content = document.getElementById('kbContent');
+    const note = document.getElementById('kbNote');
+    const cat = document.getElementById('kbCategory');
+    const eff = document.getElementById('kbEffective');
+    const exp = document.getElementById('kbExpires');
+    const src = document.getElementById('kbSource');
+    if (!content || !content.value.trim()) return toast('内容不能为空', true);
+    btn.disabled = true;
+    try {
+      const resp = await fetch('/api/knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: content.value.trim(),
+          note: note ? note.value.trim() : '',
+          category: cat ? cat.value : '其他',
+          effective: eff ? eff.value : '',
+          expires: exp ? exp.value : '',
+          source: src ? src.value : '手写',
+        }),
+      });
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || '保存失败');
+      content.value = '';
+      if (note) note.value = '';
+      toast('已保存');
+      loadKnowledge();
+    } catch (err) {
+      toast('没保存：' + err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function bindKnowledge() {
+    const add = document.getElementById('kbAdd');
+    if (add) add.addEventListener('click', addKnowledge);
+    const search = document.getElementById('kbSearch');
+    if (search) {
+      let timer = 0;
+      search.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          kb.q = search.value.trim();
+          loadKnowledge();
+        }, 300);
+      });
+    }
+    const eff = document.getElementById('kbEffective');
+    if (eff) eff.value = new Date().toISOString().slice(0, 10);
+  }
 
   function bindEvents() {
     // @ 选员工

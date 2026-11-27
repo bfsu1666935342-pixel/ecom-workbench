@@ -236,6 +236,25 @@ function toolDefs(opts = {}) {
     });
   }
 
+  // 知识库检索：给员工查「我们自己的口径」
+  defs.push({
+    type: 'function',
+    function: {
+      name: 'search_knowledge',
+      description:
+        '检索知识库里「我们自己的口径/经验」（不是网上能查到的通用知识）。' +
+        '涉及评论写法、广告规则、选品边界、运营口径时先查；查到就按它办，不要用通用做法覆盖。',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '关键词，例如 评论 负面 参数' },
+          category: { type: 'string', description: '可选：评论 / 广告 / 选品 / 运营 / 其他' },
+        },
+        required: ['query'],
+      },
+    },
+  })
+
   // 运行工具型技能：不直接跑，先发确认
   const runnable = (Array.isArray(opts.skills) ? opts.skills : []).filter((x) => {
     const cmds = (x.meta && Array.isArray(x.meta.commands) && x.meta.commands) || x.commands || [];
@@ -309,6 +328,8 @@ class ToolRunner {
           return this.readSkillConfig(args);
         case 'run_skill':
           return this.requestRunSkill(args);
+        case 'search_knowledge':
+          return this.searchKnowledge(args);
         case 'check_output':
           return this.checkOutput(args);
         case 'load_skill':
@@ -445,6 +466,20 @@ class ToolRunner {
         '已生成修改提案，用户点「应用」后才写盘：\n' +
         lines.map((x) => '- ' + x).join('\n') +
         '\n\n请告诉用户看一眼清单、点「应用」即生效；不对就说哪里不对，你重新提案。不要让他手改文件。',
+    };
+  }
+
+  searchKnowledge(args) {
+    const { Knowledge } = require('./knowledge');
+    const path = require('path');
+    const kb = new Knowledge(path.join(__dirname, '..', 'data'));
+    const items = kb.search(String(args.query || ''), { category: String(args.category || ''), limit: 5 });
+    if (!items.length) return { ok: true, content: '知识库里没有相关条目。（不要因此编造口径）' };
+    return {
+      ok: true,
+      content:
+        '知识库命中 ' + items.length + ' 条（按我们的口径办）：\n' +
+        items.map((it, i) => i + 1 + '. [' + it.category + '] ' + it.content + (it.note ? '（备注：' + it.note + '）' : '')).join('\n'),
     };
   }
 

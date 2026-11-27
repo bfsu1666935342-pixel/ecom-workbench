@@ -10,6 +10,12 @@ const { readConfig, saveConfig, configFiles } = require('./skillconfig');
 const proposals = require('./proposals');
 const confirmations = require('./confirmations');
 const runs = require('./runs');
+const { Knowledge, CATEGORIES, SOURCES } = require('./knowledge');
+let knowledge = null;
+function kb(store) {
+  if (!knowledge) knowledge = new Knowledge(store.dataDir);
+  return knowledge;
+}
 
 /** run.js 返回的 files 是相对路径字符串数组，统一成 {path,name} */
 function toFileRef(f) {
@@ -624,6 +630,53 @@ const spusCache = new Map(); // 按店铺列 SPU 的缓存（10 分钟）
       }, 300);
       return true;
     }
+    // 知识库
+    if (pathname === '/api/knowledge' && req.method === 'GET') {
+      sendJson(res, 200, {
+        ok: true,
+        categories: CATEGORIES,
+        sources: SOURCES,
+        items: kb(store).list({
+          q: url.searchParams.get('q') || '',
+          category: url.searchParams.get('category') || '',
+          includeDeleted: url.searchParams.get('deleted') === '1',
+        }),
+      });
+      return true;
+    }
+
+    if (pathname === '/api/knowledge' && req.method === 'POST') {
+      try {
+        const body = await readJsonBody(req, 1024 * 1024);
+        const item = kb(store).add(body);
+        sendJson(res, 200, { ok: true, item });
+      } catch (err) {
+        sendJson(res, err.status || 400, { ok: false, error: friendlyError(err) });
+      }
+      return true;
+    }
+
+    if (pathname === '/api/knowledge' && req.method === 'PATCH') {
+      try {
+        const body = await readJsonBody(req, 1024 * 1024);
+        const item = kb(store).update(String(body.id || ''), body);
+        sendJson(res, 200, { ok: true, item });
+      } catch (err) {
+        sendJson(res, err.status || 400, { ok: false, error: friendlyError(err) });
+      }
+      return true;
+    }
+
+    if (pathname === '/api/knowledge' && req.method === 'DELETE') {
+      try {
+        kb(store).remove(String(url.searchParams.get('id') || ''));
+        sendJson(res, 200, { ok: true });
+      } catch (err) {
+        sendJson(res, err.status || 400, { ok: false, error: friendlyError(err) });
+      }
+      return true;
+    }
+
     if (pathname === '/api/verify' && req.method === 'POST') {
       try {
         const body = await readJsonBody(req, 1024 * 1024);

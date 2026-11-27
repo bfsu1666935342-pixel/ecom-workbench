@@ -1867,3 +1867,31 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   background: #f0f4ff;
   box-shadow: inset 2px 0 0 #2563eb;
 }
+
+
+/* ---------- 知识库 ---------- */
+.kb-form { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 14px 0 18px; background: #fbfcfe; }
+.kb-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
+.kb-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.kb-field span { font-size: 11px; }
+.kb-field input, .kb-field select, .kb-field textarea {
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; background: #fff; color: #222;
+}
+.kb-narrow { flex: 0 0 150px; }
+.kb-grow { flex: 1 1 320px; }
+.kb-full { width: 100%; }
+.kb-field textarea { resize: vertical; line-height: 1.6; }
+.kb-hint { color: var(--muted); font-size: 11px; margin: 2px 0 0; }
+.kb-toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.kb-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.kb-chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; color: #444; }
+.kb-chip.active { background: #1f2937; border-color: #1f2937; color: #fff; }
+#kbSearch { flex: 1 1 200px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 13px; }
+.kb-list { display: flex; flex-direction: column; gap: 10px; }
+.kb-item { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: #fff; }
+.kb-meta { display: flex; gap: 10px; align-items: center; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.kb-tag { background: #eef2f7; color: #374151; border-radius: 5px; padding: 1px 8px; }
+.kb-body { font-size: 13px; line-height: 1.7; white-space: pre-wrap; color: #1a1a1a; }
+.kb-note { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.kb-acts { margin-top: 8px; display: flex; gap: 8px; }
+.kb-empty { color: var(--muted); font-size: 13px; padding: 24px 0; text-align: center; }
