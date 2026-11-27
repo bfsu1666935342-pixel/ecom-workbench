@@ -248,7 +248,7 @@ function toolDefs(opts = {}) {
         type: 'object',
         properties: {
           query: { type: 'string', description: '关键词，例如 评论 负面 参数' },
-          category: { type: 'string', description: '可选：评论 / 广告 / 选品 / 运营 / 其他' },
+          category: { type: 'string', description: '可选：选品 / Listing / 广告 / 仓储备货 / 售后 / 工作流 / 其他' },
         },
         required: ['query'],
       },

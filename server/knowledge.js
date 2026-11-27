@@ -10,7 +10,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const CATEGORIES = ['评论', '广告', '选品', '运营', '其他'];
+const CATEGORIES = ['选品', 'Listing', '广告', '仓储备货', '售后', '工作流', '其他'];
+
+// 老分类 → 新分类（数据里可能还有旧值）
+const LEGACY = { 评论: 'Listing', 运营: '工作流', 仓储: '仓储备货', 备货: '仓储备货' };
 const SOURCES = ['手写', '对话总结', '报告摘录'];
 
 function today() {
@@ -52,6 +55,7 @@ class Knowledge {
     const now = today();
     const kw = String(q || '').trim().toLowerCase();
     return doc.items
+      .map((it) => (CATEGORIES.includes(it.category) ? it : Object.assign({}, it, { category: LEGACY[it.category] || "其他" })))
       .filter((it) => (includeDeleted ? true : !it.deleted))
       .filter((it) => (category ? it.category === category : true))
       .filter((it) => (includeFuture ? true : !it.effective || it.effective <= now))
