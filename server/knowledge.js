@@ -13,6 +13,14 @@ const path = require('path');
 const CATEGORIES = ['选品', 'Listing', '广告', '仓储备货', '售后', '工作流', '其他'];
 
 // 老分类 → 新分类（数据里可能还有旧值）
+// 员工能查哪些分类；不在表里的（含未选员工）能查全部
+const AGENT_SCOPES = {
+  selection: ['选品', '广告', '工作流'],
+  listing: ['Listing', '售后', '工作流'],
+  ads: ['广告', '工作流'],
+  ops: ['仓储备货', '售后', '工作流'],
+};
+
 const LEGACY = { 评论: 'Listing', 运营: '工作流', 仓储: '仓储备货', 备货: '仓储备货' };
 const SOURCES = ['手写', '对话总结', '报告摘录'];
 
@@ -119,7 +127,7 @@ class Knowledge {
   }
 
   /** 给员工用：只返回当下有效、且相关的几条 */
-  search(query, { category = '', limit = 5 } = {}) {
+  search(query, { category = '', categories = null, limit = 5 } = {}) {
     const now = today();
     const doc = this.read();
     const words = String(query || '')
@@ -130,7 +138,10 @@ class Knowledge {
       .filter((it) => !it.deleted)
       .filter((it) => !it.effective || it.effective <= now)
       .filter((it) => !it.expires || it.expires >= now)
-      .filter((it) => (category ? it.category === category : true))
+      .filter((it) => {
+        if (categories && categories.length) return categories.includes(it.category);
+        return category ? it.category === category : true;
+      })
       .map((it) => {
         const hay = (it.content + ' ' + (it.note || '')).toLowerCase();
         let score = 0;
@@ -164,4 +175,4 @@ class Knowledge {
   }
 }
 
-module.exports = { Knowledge, CATEGORIES, SOURCES, today };
+module.exports = { Knowledge, CATEGORIES, SOURCES, AGENT_SCOPES, today };

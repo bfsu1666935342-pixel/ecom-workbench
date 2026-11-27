@@ -236,14 +236,17 @@ function toolDefs(opts = {}) {
     });
   }
 
-  // 知识库检索：给员工查「我们自己的口径」
+  // 知识库检索：给员工查「我们自己的口径」（按员工收窄范围）
+  const kbScopes = (() => { try { return require('./knowledge').AGENT_SCOPES; } catch { return {}; } })();
+  const scope = (opts.agentId && kbScopes[opts.agentId]) || [];
   defs.push({
     type: 'function',
     function: {
       name: 'search_knowledge',
       description:
         '检索知识库里「我们自己的口径/经验」（不是网上能查到的通用知识）。' +
-        '涉及评论写法、广告规则、选品边界、运营口径时先查；查到就按它办，不要用通用做法覆盖。',
+        '涉及写法、广告规则、选品边界、备货口径、售后处理时先查；查到就按它办，不要用通用做法覆盖。' +
+        (scope.length ? '你只能查到这些分类：' + scope.join('、') + '。' : ''),
       parameters: {
         type: 'object',
         properties: {
@@ -470,10 +473,13 @@ class ToolRunner {
   }
 
   searchKnowledge(args) {
-    const { Knowledge } = require('./knowledge');
+    const { Knowledge, AGENT_SCOPES } = require('./knowledge');
     const path = require('path');
     const kb = new Knowledge(path.join(__dirname, '..', 'data'));
-    const items = kb.search(String(args.query || ''), { category: String(args.category || ''), limit: 5 });
+    const allow = (this.agentId && AGENT_SCOPES[this.agentId]) || null;
+    let category = String(args.category || '');
+    if (allow && category && !allow.includes(category)) category = '';
+    const items = kb.search(String(args.query || ''), { category, categories: allow, limit: 5 });
     if (!items.length) return { ok: true, content: '知识库里没有相关条目。（不要因此编造口径）' };
     return {
       ok: true,

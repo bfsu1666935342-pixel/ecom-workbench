@@ -265,6 +265,7 @@ async function runTurn(opts) {
     noReportFiles: Boolean(skill && skill.runOnly),
     skillTitle: skill ? skill.title : '',
     sessionId: session ? session.id : null,
+    agentId: agent ? agent.id : null,
     emit: (ev) => {
       if (ev && ev.t === 'sources') {
         for (const item of ev.items || []) {
