@@ -81,6 +81,7 @@ const spusCache = new Map(); // 按店铺列 SPU 的缓存（10 分钟）
       fields: s.fields,
       featured: s.featured,
       runOnly: Boolean(s.runOnly),
+      noRunCard: Boolean(s.meta && s.meta.noRunCard),
       commands: commandList(s),
       configFiles: s.meta && Array.isArray(s.meta.configFiles) ? s.meta.configFiles : [],
       primaryOutput: s.meta && typeof s.meta.primaryOutput === 'string' ? s.meta.primaryOutput : '',

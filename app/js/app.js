@@ -2494,9 +2494,16 @@ function addConfigProposal(refs, ev) {
       '<p class="howto-note">两种方式等价：在下面改，或者直接跟员工聊。</p>';
 
     // ③ 配置 + 运行
-    // 有配置的技能才显示「配置 + 运行」；没有配置的直接去对话里跑，卡片上不放按钮
-    const runHtml = cmds.length && hasCfg
-      ? '<div class="skill-run" data-runbox><div class="sr-loading">正在读取配置…</div></div>' +
+    // 只有显式声明 noRunCard 的技能（参数全在对话里定）才隐藏运行区；
+    // 其余技能（周报有配置、备货没配置）都保留
+    const hideRun = Boolean(skill.noRunCard);
+    const runHtml = cmds.length && !hideRun
+      ? (hasCfg
+          ? '<div class="skill-run" data-runbox><div class="sr-loading">正在读取配置…</div></div>'
+          : '<div class="skill-run" data-runbox><div class="sr-line">' +
+            '<span class="sr-v">这个技能不用配置，直接跑；结果会存到工作区。</span>' +
+            '<button class="btn small primary" type="button" data-quickrun>运行</button></div>' +
+            '<div class="run-panel hidden" data-runpanel><button type="button" data-gorun hidden></button><div data-runresult></div></div></div>') +
         '<details class="skill-adv"><summary>高级：单独运行命令</summary><div class="run-list">' +
         cmds
           .map((c, i) => {
@@ -2567,6 +2574,17 @@ function addConfigProposal(refs, ev) {
     });
 
     if (hasCfg && cmds.length) loadSkillRunBox(modal, skill, cmds);
+
+    // 没有配置文件但有运行区的技能（如备货计划）：点运行直接跑
+    const quick = modal.querySelector('[data-quickrun]');
+    if (quick && cmds.length) {
+      quick.addEventListener('click', () => {
+        const panel = modal.querySelector('[data-runpanel]');
+        if (!panel) return;
+        panel.classList.remove('hidden');
+        doRunSkill(modal, skill, cmds[0], panel);
+      });
+    }
 
 
     // 上次产出
