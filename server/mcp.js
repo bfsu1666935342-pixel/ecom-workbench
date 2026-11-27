@@ -4,7 +4,10 @@ const path = require('path');
 const { ensureDir, atomicWrite, readJson, uid } = require('./util');
 
 const PROTOCOL = '2024-11-05';
-const MAX_TOOLS = 40;
+// 所有 MCP 服务加起来的工具上限。原来是 40，SIF(37) 就吃掉大半，
+// Sorftime 那种上百个工具的服务会一个都进不来，所以放大到 260。
+// 太多会占上下文，真觉得慢再按服务裁剪。
+const MAX_TOOLS = 260;
 
 const PRESETS = [
   {
@@ -430,7 +433,10 @@ class McpManager {
       }
       slugs.add(slug);
       for (const tool of server.tools) {
-        if (defs.length >= MAX_TOOLS) break;
+        if (defs.length >= MAX_TOOLS) {
+        console.warn('[mcp] 工具数到上限 ' + MAX_TOOLS + '，' + server.name + ' 的其余工具被截断');
+        break;
+      }
         const toolName = sanitizeName(tool.name);
         const fullName = ('mcp__' + slug + '__' + toolName).slice(0, 120);
         if (this.toolMap.has(fullName)) continue;
