@@ -199,9 +199,42 @@
           <div class="page-head">
             <div>
               <h1>知识库</h1>
-              <p class="page-sub">我们自己的口径和经验。不是网上能查到的通用知识。</p>
+              <p class="page-sub">我们自己的口径和业务差异——网上搜不到的，才值得写进来。</p>
             </div>
           </div>
+
+
+          <details class="kb-help" id="kbHelp">
+            <summary>怎么用知识库</summary>
+            <div class="kb-help-body">
+              <div class="kb-help-col">
+                <h4>放什么</h4>
+                <ul>
+                  <li>我们自己的规矩：口径、红线、偏好（例：评论里禁止写具体参数）</li>
+                  <li>业务差异：只做椅类、按 3 个月备货、ACOS 红线 35%</li>
+                </ul>
+                <h4>别放什么</h4>
+                <ul>
+                  <li>网上能查到的：FBA 费率、平台政策、行业常识</li>
+                  <li>这些会过期，员工查到后还会和网上内容打架</li>
+                </ul>
+              </div>
+              <div class="kb-help-col">
+                <h4>怎么写</h4>
+                <ul>
+                  <li>一条一个规则，建议 200 字以内</li>
+                  <li>写成能改变行为的话：「禁止…」「必须…」「一律…」</li>
+                  <li>别写「评论很重要」这种谁都知道的</li>
+                </ul>
+                <h4>能装多少</h4>
+                <ul>
+                  <li>每类 20–50 条，总量 150–350 条最舒服</li>
+                  <li>超了先删失效的、重复的，别急着拆分类</li>
+                  <li>原因：员工一次只查 5 条，条目太多会互相挤；现在是关键词匹配，写太杂会误命中</li>
+                </ul>
+              </div>
+            </div>
+          </details>
 
           <div class="kb-form">
             <div class="kb-row">
@@ -216,11 +249,13 @@
               <button class="btn primary" id="kbAdd" type="button">保存</button>
             </div>
             <p class="kb-hint">写「能改变什么行为」的规则，别写常识。「亚马逊评论很重要」这种不要收录。</p>
+            <p class="kb-hint">建议 200 字以内，一条一个规则。写太长会占掉「员工一次只查 5 条」里的一个名额。</p>
           </div>
 
           <div class="kb-toolbar">
             <div class="kb-filters" id="kbFilters"></div>
             <input type="search" id="kbSearch" placeholder="搜索内容 / 备注">
+            <span class="kb-count" id="kbCount"></span>
           </div>
           <div id="kbList" class="kb-list"></div>
         </div>

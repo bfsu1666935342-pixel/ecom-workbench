@@ -1899,3 +1899,21 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 /* 行内编辑 */
 .kb-edit { display: flex; flex-direction: column; gap: 8px; }
 .kb-edit .kb-acts { margin-top: 4px; }
+
+
+/* 知识库说明 */
+.kb-help { border: 1px solid var(--line); border-radius: 10px; background: #fbfcfe; margin: 10px 0 4px; }
+.kb-help summary { cursor: pointer; padding: 10px 14px; font-size: 13px; color: #374151; list-style: none; }
+.kb-help summary::-webkit-details-marker { display: none; }
+.kb-help summary::before { content: '▸ '; color: var(--muted); }
+.kb-help[open] summary::before { content: '▾ '; }
+.kb-help-body { display: flex; gap: 28px; padding: 4px 18px 16px; flex-wrap: wrap; }
+.kb-help-col { flex: 1 1 320px; min-width: 260px; }
+.kb-help-col h4 { margin: 10px 0 4px; font-size: 12px; color: #111; }
+.kb-help-col ul { margin: 0 0 6px 18px; padding: 0; }
+.kb-help-col li { font-size: 12px; color: #444; line-height: 1.7; }
+.kb-count { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.kb-empty-title { font-size: 14px; color: #222; margin-bottom: 6px; }
+.kb-empty-sub { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.kb-empty-cats { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+.kb-empty-cats span { border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; font-size: 12px; color: #444; background: #fff; }

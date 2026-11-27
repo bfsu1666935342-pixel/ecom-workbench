@@ -3924,6 +3924,8 @@ function addConfigProposal(refs, ev) {
       renderKnowledge();
       const count = document.getElementById('navKnowledgeCount');
       if (count) count.textContent = String(kb.items.length);
+      const counter = document.getElementById('kbCount');
+      if (counter) counter.textContent = '已收录 ' + kb.items.length + ' 条';
     } catch {
       /* 忽略 */
     }
@@ -3958,7 +3960,20 @@ function addConfigProposal(refs, ev) {
     }
     const items = kb.items.filter((x) => (kb.filter ? x.category === kb.filter : true));
     if (!items.length) {
-      list.innerHTML = '<div class="kb-empty">还没有知识点。上面写一条试试。</div>';
+      list.innerHTML =
+        '<div class="kb-empty">' +
+        '<div class="kb-empty-title">还没有知识点。先写三条试试：</div>' +
+        '<div class="kb-empty-sub">建议先给这三个分类各写一条红线</div>' +
+        '<div class="kb-empty-cats"><span>Listing</span><span>广告</span><span>仓储备货</span></div>' +
+        '<button class="btn primary" type="button" id="kbEmptyStart">写第一条</button>' +
+        '</div>';
+      const startBtn = document.getElementById('kbEmptyStart');
+      if (startBtn) {
+        startBtn.addEventListener('click', () => {
+          const box = document.getElementById('kbContent');
+          if (box) box.focus();
+        });
+      }
       return;
     }
     list.innerHTML = items
@@ -4074,6 +4089,25 @@ function addConfigProposal(refs, ev) {
   }
 
   function bindKnowledge() {
+    // 第一次进来自动展开「怎么用」，之后保持收起
+    const help = document.getElementById('kbHelp');
+    if (help) {
+      let seen = '';
+      try {
+        seen = localStorage.getItem('kbHelpSeen') || '';
+      } catch {
+        seen = '1';
+      }
+      if (!seen) {
+        help.open = true;
+        try {
+          localStorage.setItem('kbHelpSeen', '1');
+        } catch {
+          /* 忽略 */
+        }
+      }
+    }
+
     const add = document.getElementById('kbAdd');
     if (add) add.addEventListener('click', addKnowledge);
     const search = document.getElementById('kbSearch');
