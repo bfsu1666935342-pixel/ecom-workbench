@@ -3967,17 +3967,54 @@ function addConfigProposal(refs, ev) {
         await fetch('/api/knowledge?id=' + encodeURIComponent(id), { method: 'DELETE' });
         loadKnowledge();
       });
-      el.querySelector('[data-kbedit]').addEventListener('click', async () => {
-        const content = prompt('内容', item.content);
-        if (content === null) return;
-        const note = prompt('备注（可留空）', item.note || '');
-        if (note === null) return;
-        await fetch('/api/knowledge', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, content, note }),
+      el.querySelector('[data-kbedit]').addEventListener('click', () => {
+        const cats = kb.categories.map((c) => '<option' + (c === item.category ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
+        const srcs = kb.sources.map((c) => '<option' + (c === (item.source || '手写') ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
+        el.innerHTML =
+          '<div class="kb-edit">' +
+          '<div class="kb-row">' +
+          '<label class="kb-field kb-narrow"><span>分类</span><select data-e="category">' + cats + '</select></label>' +
+          '<label class="kb-field kb-narrow"><span>生效</span><input type="date" data-e="effective" value="' + esc(item.effective || '') + '"></label>' +
+          '<label class="kb-field kb-narrow"><span>失效（可选）</span><input type="date" data-e="expires" value="' + esc(item.expires || '') + '"></label>' +
+          '<label class="kb-field kb-narrow"><span>来源</span><select data-e="source">' + srcs + '</select></label>' +
+          '</div>' +
+          '<label class="kb-field kb-full"><span>内容</span><textarea rows="3" data-e="content">' + esc(item.content) + '</textarea></label>' +
+          '<label class="kb-field kb-full"><span>备注（可选）</span><input type="text" data-e="note" value="' + esc(item.note || '') + '"></label>' +
+          '<div class="kb-acts"><button class="btn small primary" type="button" data-esave>保存</button>' +
+          '<button class="btn small ghost" type="button" data-ecancel>取消</button></div>' +
+          '</div>';
+
+        el.querySelector('[data-ecancel]').addEventListener('click', () => renderKnowledge());
+        el.querySelector('[data-esave]').addEventListener('click', async (ev) => {
+          const btn = ev.currentTarget;
+          btn.disabled = true;
+          const val = (k) => {
+            const n = el.querySelector('[data-e="' + k + '"]');
+            return n ? n.value : '';
+          };
+          try {
+            const resp = await fetch('/api/knowledge', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id,
+                category: val('category'),
+                effective: val('effective'),
+                expires: val('expires'),
+                source: val('source'),
+                content: val('content'),
+                note: val('note'),
+              }),
+            });
+            const data = await resp.json();
+            if (!data.ok) throw new Error(data.error || '保存失败');
+            toast('已保存');
+            loadKnowledge();
+          } catch (err) {
+            toast('没保存：' + err.message, true);
+            btn.disabled = false;
+          }
         });
-        loadKnowledge();
       });
     });
   }
